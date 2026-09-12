@@ -5,7 +5,7 @@ import {createHash} from 'node:crypto';
 import {resolve, dirname, posix} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
-const commands = new Set(['health', 'submit', 'status', 'wait', 'result', 'artifact', 'continue', 'cancel', 'review']);
+const commands = new Set(['health', 'submit', 'fast', 'status', 'wait', 'result', 'artifact', 'continue', 'cancel', 'review']);
 const valueFlags = new Set(['--target', '--request', '--task', '--run', '--path', '--out', '--timeout-ms', '--decision', '--notes']);
 const fail = code => Object.assign(new Error(code), {code});
 export const shellQuote = value => "'" + String(value).replaceAll("'", "'\"'\"'") + "'";
@@ -88,7 +88,7 @@ async function main() {
   const root = fileURLToPath(new URL('..', import.meta.url));
   const config = JSON.parse(await readFile(resolve(root, 'bridge.ssh.local.json'), 'utf8'));
   let input;
-  if (['submit', 'continue'].includes(command)) {
+  if (['submit', 'continue', 'fast'].includes(command)) {
     if (!values['--request']) throw fail('REQUEST_FILE_REQUIRED');
     input = await readFile(resolve(values['--request']));
     if (input.length > 256*1024) throw fail('REQUEST_TOO_LARGE');

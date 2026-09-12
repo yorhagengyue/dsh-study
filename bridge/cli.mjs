@@ -51,7 +51,7 @@ async function requestFromStdin() {
 
 async function main() {
   if (!command || ['help', '--help', '-h'].includes(command)) {
-    console.log('DSH bridge: init | setup | start | serve | health | submit | status | wait | result | artifact | continue | cancel | review | stop\nUse --request JSON_FILE for submit/continue, or --request - for UTF-8 JSON on stdin (maximum 256 KiB); --task ID for task operations. No credential arguments.');
+    console.log('DSH bridge: init | setup | start | serve | health | submit | fast | status | wait | result | artifact | continue | cancel | review | stop\nUse --request JSON_FILE for submit/continue/fast, or --request - for UTF-8 JSON on stdin (maximum 256 KiB); --task ID for task operations. No credential arguments.');
     return;
   }
   if (command === 'init') return print(await initializeLocal(root, {dshInstall: values['--dsh-root'], python: values['--python'], port: values['--port'] ? Number(values['--port']) : undefined, reuseDshCredential: Boolean(values['--reuse-dsh-credential'])}));
@@ -109,6 +109,38 @@ async function main() {
     return JSON.parse(await readFile(resolve(values['--request']), 'utf8'));
   };
   if (command === 'submit') return print(await api('/v1/tasks', await request()));
+  if (command === 'fast') {
+    const envelope = await request();
+    const {fast_review: reviewRequest, ...taskRequest} = envelope;
+    const startedAt = new Date().toISOString();
+    const receipt = await api('/v1/tasks', taskRequest);
+    const taskId = receipt.task_id;
+    const waitRun = async (runId) => {
+      const deadline = Date.now() + Number(values['--timeout-ms'] ?? 50000);
+      for (;;) {
+        const state = await api('/v1/tasks/' + encodeURIComponent(taskId));
+        const run = state.runs.find(item => item.run_id === runId);
+        if (!run) throw new Error('RUN_NOT_FOUND');
+        if (terminal.has(run.status)) return {state, run};
+        if (Date.now() >= deadline) throw new Error('FAST_WAIT_TIMEOUT');
+        await delay(100);
+      }
+    };
+    const fetchRun = async runId => {
+      const result = await api('/v1/tasks/' + encodeURIComponent(taskId) + '/result?run_id=' + encodeURIComponent(runId));
+      const artifacts = {};
+      for (const item of result.artifacts ?? []) artifacts[item.path] = await api('/v1/tasks/' + encodeURIComponent(taskId) + '/artifact?run_id=' + encodeURIComponent(runId) + '&path=' + encodeURIComponent(item.path));
+      return {result, artifacts};
+    };
+    const runs = [];
+    let current = await waitRun(receipt.run_id); runs.push(await fetchRun(current.run.run_id));
+    if (reviewRequest) {
+      const reviewPayload = {...reviewRequest, goal: reviewRequest.goal ?? reviewRequest.guidance}; delete reviewPayload.guidance;
+      const reviewReceipt = await api('/v1/tasks/' + encodeURIComponent(taskId) + '/continue', reviewPayload);
+      current = await waitRun(reviewReceipt.run_id); runs.push(await fetchRun(current.run.run_id));
+    }
+    return print({mode: 'fast', started_at: startedAt, finished_at: new Date().toISOString(), task_id: taskId, session_id: current.state.session_id, runs});
+  }
   if (command === 'status' && !values['--task']) return print(await api('/v1/tasks'));
   if (!values['--task']) throw new Error('TASK_ID_REQUIRED');
   const taskPath = '/v1/tasks/' + encodeURIComponent(values['--task']);
