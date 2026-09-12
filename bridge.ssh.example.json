@@ -1,0 +1,10 @@
+{
+  "targets": {
+    "mac-mini": {
+      "host": "your-authorized-ssh-alias",
+      "port": 22,
+      "node": "/absolute/path/to/node",
+      "cli": "/absolute/path/to/dsh-study/bridge/cli.mjs"
+    }
+  }
+}
