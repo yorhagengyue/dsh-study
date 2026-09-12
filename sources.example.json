@@ -1,0 +1,20 @@
+{
+  "sources": [
+    {
+      "id": "canvas-example",
+      "type": "canvas",
+      "name": "Canvas 示例来源",
+      "base_url_env": "CANVAS_BASE_URL",
+      "token_env": "CANVAS_API_TOKEN",
+      "course_ids": []
+    },
+    {
+      "id": "personal-example",
+      "type": "local",
+      "name": "个人合成课件示例",
+      "path": "examples/personal",
+      "course_id": "personal",
+      "course_name": "个人资料示例"
+    }
+  ]
+}
