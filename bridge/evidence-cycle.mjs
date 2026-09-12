@@ -19,9 +19,8 @@ export async function persistVerdict(directory, input, verdict) {
     await writeFile(join(directory,'verdict.json'),JSON.stringify(verdict,null,2),{flag:'wx'});
 }
 
-async function main() {
+export async function runEvidence(command, directory, input, emit = console.log) {
 const root = fileURLToPath(new URL('..', import.meta.url));
-const [command, directory, input] = process.argv.slice(2);
 const dir = resolve(directory ?? '.');
 const read = async p => JSON.parse(await readFile(p, 'utf8'));
 const save = (p, v) => writeFile(join(dir, p), JSON.stringify(v, null, 2), {flag:'wx'});
@@ -82,7 +81,7 @@ if (command === 'dispatch') {
   }
   const reviewInput = {request:bundle.request, source:bundle.source_text, artifacts, task_id:response.task_id, run_id:last.result.run_id, status:last.result.status, final_response:last.result.final_response};
   await save('review-input.json', reviewInput);
-  console.log(JSON.stringify(reviewInput));
+  emit(JSON.stringify(reviewInput));
 } else if (command === 'review') {
   const verdict = await read(resolve(input));
   const state = await read(join(dir, 'dispatch.json'));
@@ -95,7 +94,7 @@ if (command === 'dispatch') {
   if (response.review?.status !== verdict.decision) throw Error('REVIEW_NOT_PERSISTED');
   const finished = new Date().toISOString();
   await save('timing.json', {started_at:state.started_at,finished_at:finished,elapsed_ms:Date.parse(finished)-Date.parse(state.started_at),decision:response.review.status,scope:'dispatch through actual caller review and persisted review response; source staging excluded'});
-  console.log(JSON.stringify({elapsed_ms:Date.parse(finished)-Date.parse(state.started_at),review:response.review}));
+  emit(JSON.stringify({elapsed_ms:Date.parse(finished)-Date.parse(state.started_at),review:response.review}));
 } else throw Error('USE_DISPATCH_OR_REVIEW');
 }
-if(process.argv[1] && resolve(process.argv[1])===fileURLToPath(import.meta.url)) await main();
+if(process.argv[1] && resolve(process.argv[1])===fileURLToPath(import.meta.url)) await runEvidence(...process.argv.slice(2));

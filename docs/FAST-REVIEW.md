@@ -1,5 +1,19 @@
 # 快速执行与真实调用方验收
 
+## 日常短入口：两次决策
+
+无需自行分配 request_id/workspace 或读取实现。UTF-8 输入只需 `{"source_text":"真实原文","goal":"简短目标，写到 report.md"}`；默认目标 mac-mini，默认证据在项目 runtime/quick 的唯一子目录，可选 `target` 和 `output_root`。只支持 source.md → report.md 的短资料任务，复杂多文件需求使用下面的 evidence-cycle。
+
+```powershell
+node bridge/quick.mjs start INPUT_JSON
+# 实际阅读返回的 source 和 report 后，写具体判决，再立即执行：
+node bridge/quick.mjs review EVIDENCE_DIR VERDICT_JSON
+```
+
+判决只需 `decision`、实际 `reviewer` 和具体 `reasoning`，run_id 自动绑定刚才的实际输出（若显式提供不一致则拒绝）。start 不接收预写判决，返回 pending_review；源上传、回读、请求分配、公开工具日志、字节完整性和所有证据落盘均自动完成。review 的 quick-timing.json 从 start 入口读取输入前开始，包含首次源准备、执行、返回与真实审阅，不包含模型在第一次命令前组织输入或命令返回后对用户回报的时间。完整用户消息到回复时间仍必须单独记录。
+
+若判决为 changes_requested，保留记录并用下述同会话 continuation；不得重新建任务掩盖纠错耗时。回报只给状态、耗时及文件路径，全文保存在产物与公开日志中。输入/判决的文件写入与命令应组合在同一工具调用，避免额外模型回合。
+
 `fast` 合并一次提交、短间隔状态查询和产物取回；它只报告执行状态，**不自动接受产物**。可选 `fast_review` 必须使用普通 `goal` 字段，只表示同会话模型自检。执行失败、超时或自检失败会保留 receipt、已有结果及错误，便于继续查询，不应自动重放任务。
 
 `evidence-cycle.mjs` 把资料预检、公开工具日志、产物完整性检查和调用方审阅分成两个紧邻调用。它面向已授权的 SSH 目标，使用项目的 `bridge.ssh.local.json`。Mac 工作区必须事先放好 UTF-8 `source.md`；入口会真实回读并与 `source_text` 比较，缺失或不一致时在模型提交前失败。
