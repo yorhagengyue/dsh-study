@@ -1,0 +1,25 @@
+{
+  "name": "@yorhagengyue/dsh-study",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Native DSH learning-material input service, Python provider and model-facing tools",
+  "type": "module",
+  "main": "service.mjs",
+  "types": "index.d.ts",
+  "exports": {
+    ".": {"types": "./index.d.ts", "default": "./service.mjs"},
+    "./provider": "./provider.mjs",
+    "./tools": "./tools.mjs",
+    "./package.json": "./package.json",
+    "./cordis.patch.yml": "./cordis.patch.yml"
+  },
+  "files": ["*.mjs", "*.d.ts", "cordis.patch.yml"],
+  "dsh": {"bundle": {"patch": "./cordis.patch.yml"}},
+  "engines": {"node": ">=22"},
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.2",
+    "@deepseek-ai/dsh-tools": "^0.1.5-rc.2",
+    "@deepseek-ai/dsh-llm": "^0.1.5-rc.2",
+    "@deepseek-ai/schemastery": "^3.18.2"
+  }
+}

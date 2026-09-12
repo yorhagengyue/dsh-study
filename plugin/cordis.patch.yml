@@ -1,0 +1,7 @@
+- insert:
+    - id: dsh-study-service
+      name: '@yorhagengyue/dsh-study'
+    - id: dsh-study-provider
+      name: '@yorhagengyue/dsh-study/provider'
+    - id: dsh-study-tools
+      name: '@yorhagengyue/dsh-study/tools'
