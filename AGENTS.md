@@ -14,4 +14,6 @@ Canvas 仅 GET 资料，不读成绩或提交记录，不答题、签到或提�
 
 快速小任务契约：直接写一个 UTF-8 JSON `{ "source_text": "原文", "goal": "简短目标，输出 report.md" }`，执行 `node bridge/quick.mjs start INPUT_JSON`。默认 mac-mini，自动唯一ID、隔离路径、源上传回读、派工和完整证据落盘；不要为每次任务重新读CLI源码、编排路径或写stage脚本。可选 `output_root` 指定证据父目录。
 
+若当前工具表已实际加载 dsh-study MCP，优先直接调用 start(source_text,goal)，实读返回内容后 review；有错先 changes_requested 再 continue。不要再创建/接力另一个 Codex 项目任务。配置存在不代表工具已经加载；未出现时按 docs/MCP.md 的加载边界如实说明。
+
 start 返回实际源与正文、evidence_dir，状态为 pending_review。Codex 必须实际阅读核验，再在同一次工具调用内写 `{ "decision": "accepted 或 changes_requested", "reviewer": "实际身份", "reasoning": "针对实际内容的核对理由" }` 并执行 `node bridge/quick.mjs review EVIDENCE_DIR VERDICT_JSON`。禁止预写accepted或以Flash自检替代独立审阅；若拒绝则用既有evidence-cycle同会话继续。任务结束只回状态、耗时、产物和review路径；未要求全文时不复制长正文。来源对话总耗时由来源另测，quick计时包含源准备但不冒充消息收发延迟。完整契约见 docs/FAST-REVIEW.md。

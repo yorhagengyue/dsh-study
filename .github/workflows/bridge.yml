@@ -22,3 +22,7 @@ jobs:
           node-version: '22'
       - name: Cross-platform bridge checks without credentials or model requests
         run: node --test bridge/tests/*.test.mjs
+      - name: Install pinned MCP SDK
+        run: npm ci --prefix bridge/mcp --ignore-scripts
+      - name: MCP protocol checks without model credentials
+        run: npm test --prefix bridge/mcp

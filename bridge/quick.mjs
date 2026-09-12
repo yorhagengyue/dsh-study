@@ -55,7 +55,7 @@ export async function stageSource(target,id,source,spawnImpl=spawn) {
  });
 }
 
-export async function quick(command,arg,verdictFile) {
+export async function quick(command,arg,verdictFile,emit=console.log) {
  if(command==='start') {
   const received=new Date().toISOString();
   const input=validateQuickInput(await read(resolve(arg)));
@@ -71,8 +71,8 @@ export async function quick(command,arg,verdictFile) {
    await runEvidence('dispatch',dir,join(dir,'bundle.json'),()=>{});
    const review=await read(join(dir,'review-input.json'));
    // Full response is on disk; avoid repeating the prompt and model's own summary.
-   console.log(JSON.stringify({evidence_dir:dir,source:review.source,report:review.artifacts['report.md']?.text,run_id:review.run_id,status:'pending_review',execution_status:review.status}));
-  }catch(error){await write(join(dir,'quick-failure.json'),{at:new Date().toISOString(),error:error.message});console.log(JSON.stringify({evidence_dir:dir,status:'failed',error:error.message}));process.exitCode=1;}
+   emit(JSON.stringify({evidence_dir:dir,source:review.source,report:review.artifacts['report.md']?.text,run_id:review.run_id,status:'pending_review',execution_status:review.status}));
+  }catch(error){await write(join(dir,'quick-failure.json'),{at:new Date().toISOString(),error:error.message});emit(JSON.stringify({evidence_dir:dir,status:'failed',error:error.message}));if(emit===console.log)process.exitCode=1;}
  } else if(command==='review') {
   const dir=resolve(arg),verdict=await read(resolve(verdictFile));
   const review=await read(join(dir,'review-input.json'));
@@ -86,7 +86,7 @@ export async function quick(command,arg,verdictFile) {
   const ended=new Date().toISOString();
   const timing={started_at:started.started_at,finished_at:ended,elapsed_ms:Date.parse(ended)-Date.parse(started.started_at),scope:'quick command entry before source preparation through persisted actual review; excludes caller pre-command and post-return latency'};
   await write(join(dir,'quick-timing.json'),timing);
-  console.log(JSON.stringify({status:verdict.decision,elapsed_ms:timing.elapsed_ms,artifact:join(dir,'artifact-0.bin'),review:join(dir,'review-response.json')}));
+  emit(JSON.stringify({status:verdict.decision,elapsed_ms:timing.elapsed_ms,artifact:join(dir,'artifact-0.bin'),review:join(dir,'review-response.json')}));
  } else throw Error('USE_QUICK_START_INPUT_OR_REVIEW_DIR_VERDICT');
 }
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url))await quick(...process.argv.slice(2));
