@@ -13,3 +13,4 @@ dist/
 *.tgz
 sources.local.json
 bridge.local.json
+bridge.ssh.local.json

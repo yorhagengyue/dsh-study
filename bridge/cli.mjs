@@ -20,10 +20,38 @@ for (let i = 0; i < argv.length; i++) {
 const root = resolve(values['--root'] ?? fileURLToPath(new URL('..', import.meta.url)));
 const print = value => console.log(JSON.stringify(value, null, 2));
 const terminal = new Set(['completed', 'failed', 'cancelled', 'interrupted']);
+const requestStdinLimit = 256 * 1024;
+
+function stdinError(code) {
+  const error = new Error(code);
+  error.code = code;
+  return error;
+}
+
+async function requestFromStdin() {
+  const chunks = [];
+  let bytes = 0;
+  try {
+    for await (const chunk of process.stdin) {
+      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, 'utf8');
+      bytes += buffer.length;
+      if (bytes > requestStdinLimit) throw stdinError('REQUEST_STDIN_TOO_LARGE');
+      chunks.push(buffer);
+    }
+  } catch (error) {
+    if (error.code === 'REQUEST_STDIN_TOO_LARGE') throw error;
+    throw stdinError('REQUEST_STDIN_READ_FAILED');
+  }
+  let text;
+  try {text = new TextDecoder('utf-8', {fatal: true}).decode(Buffer.concat(chunks, bytes));}
+  catch {throw stdinError('REQUEST_STDIN_INVALID_UTF8');}
+  try {return JSON.parse(text);}
+  catch {throw stdinError('REQUEST_STDIN_INVALID_JSON');}
+}
 
 async function main() {
   if (!command || ['help', '--help', '-h'].includes(command)) {
-    console.log('DSH bridge: init | setup | start | serve | health | submit | status | wait | result | artifact | continue | cancel | review | stop\nUse --request JSON_FILE for submit/continue; --task ID for task operations. No credential arguments.');
+    console.log('DSH bridge: init | setup | start | serve | health | submit | status | wait | result | artifact | continue | cancel | review | stop\nUse --request JSON_FILE for submit/continue, or --request - for UTF-8 JSON on stdin (maximum 256 KiB); --task ID for task operations. No credential arguments.');
     return;
   }
   if (command === 'init') return print(await initializeLocal(root, {dshInstall: values['--dsh-root'], python: values['--python'], port: values['--port'] ? Number(values['--port']) : undefined, reuseDshCredential: Boolean(values['--reuse-dsh-credential'])}));
@@ -77,6 +105,7 @@ async function main() {
   if (command === 'stop') return print(await api('/v1/shutdown', {force: Boolean(values['--force'])}));
   const request = async () => {
     if (!values['--request']) throw new Error('REQUEST_FILE_REQUIRED');
+    if (values['--request'] === '-') return requestFromStdin();
     return JSON.parse(await readFile(resolve(values['--request']), 'utf8'));
   };
   if (command === 'submit') return print(await api('/v1/tasks', await request()));

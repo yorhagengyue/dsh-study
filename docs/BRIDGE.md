@@ -94,3 +94,17 @@ node bridge/cli.mjs stop
 HTTP 除健康检查外需要根 `.env` 的 Bearer token，拒绝浏览器 Origin。任务只暴露官方资料工具及 read/write/edit；shell、浏览器和其他工具被禁用。文件工具限制读写到任务工作区，资料工具限制来源，拒绝读取 `.env`。产物接口还校验 realpath、符号链接和相对路径。该限制是应用层策略，不是操作系统沙箱，不能抵御有本机文件权限的恶意进程并发替换路径。
 
 目前 Windows 的真实 Flash 与同会话修正结果、macOS 受控 CI 范围和剩余限制，见 [实际验证记录](BRIDGE-VALIDATION.md)。
+
+## 通过已有 SSH 连接使用远端 Bridge
+
+先在目标机器独立配置并启动同一 Bridge，再使用已授权且主机密钥已核验的 SSH 连接。复制 `bridge.ssh.example.json` 为被忽略的 `bridge.ssh.local.json`，填写 SSH 别名或已确认的 user@host，以及远端 Node/CLI 的实际绝对路径。
+
+```text
+node bridge/ssh-cli.mjs health --target mac-mini
+node bridge/ssh-cli.mjs submit --target mac-mini --request work/mac-task.json
+node bridge/ssh-cli.mjs wait --target mac-mini --task TASK_ID --timeout-ms 10000
+node bridge/ssh-cli.mjs artifact --target mac-mini --task TASK_ID --run RUN_ID --path report.md --out work/received-from-mac.md
+node bridge/ssh-cli.mjs continue --target mac-mini --task TASK_ID --request work/mac-correction.json
+```
+
+请求中的 workspace 是远端任务目录；`--request` 和 `--out` 是调用端文件。请求以 UTF-8 stdin 传输，远端 CLI 的 `--request -` 接收，避免 PowerShell 管道编码问题。产物通过 SSH 返回字节，在调用端核验长度和 SHA 后保存。远端模型和 Bridge 凭证始终留在远端根 `.env`，服务仍仅监听 loopback。入口强制 BatchMode 和 StrictHostKeyChecking，不处理账号登录、自动接受未知主机密钥或自动重放失败任务。

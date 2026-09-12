@@ -24,7 +24,7 @@ def main():
     files = [item for item in tracked if item]
     for name in files:
         path = Path(name)
-        if path.parts[0] in forbidden or path.name in {'.env', 'sources.local.json', 'bridge.local.json'} or (path.name.startswith('.env.') and path.name != '.env.example'):
+        if path.parts[0] in forbidden or path.name in {'.env', 'sources.local.json', 'bridge.local.json', 'bridge.ssh.local.json'} or (path.name.startswith('.env.') and path.name != '.env.example'):
             failures.append({'path': name, 'reason': 'private_path_tracked'})
         disk = ROOT / path
         if disk.is_file() and any(secret in disk.read_bytes() for secret in secrets):
