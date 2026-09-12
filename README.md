@@ -1,8 +1,10 @@
 # dsh-study
 
-耿越自己的资料输入插件。独立 Python 后端连接 Canvas 或本地课件，通过原生 DSH service、provider 和工具提供来源、课程目录、刷新、导入、正文/文件读取及错误状态。学校来源不表示学习者学籍。
+学习资料输入插件与 Cordis 学习连接。[v0.3 入口](docs/STUDY-APP.md) 自动安装 Codex Skill 和 DSH Cordis 插件，默认在桌面保存必要背景、来源目录、完整任务与计时 Markdown。简单信息直接说明，详细材料由 DSH 按目录读取；当前不提供自建 Study UI。[调整计划](docs/CONTEXT-INDEX-PLAN.md) 与 [真实验证](docs/STUDY-APP-VALIDATION.md) 随代码保存。
 
-资料插件处理资料输入与输出。Canvas HTML 和 UTF-8 文本可直接读取；PDF/Word 等返回原始字节并标明需要解析器，不能把“已下载”当作“已理解”。插件本身不生成 AI 总结，不做知识整理、学生 profile 或新网页。SMU adapter 尚未实现。
+原资料插件仍由独立 Python 后端连接 Canvas 或本地课件，通过原生 DSH service、provider 和工具提供来源、课程目录、刷新、导入、正文/文件读取及错误状态。学校来源不表示学习者学籍。
+
+资料插件处理资料输入与输出。Canvas HTML 和 UTF-8 文本可直接读取；PDF/Word 等返回原始字节并标明需要解析器，不能把“已下载”当作“已理解”。简要背景、目录与派工由独立的 connection-plugin 提供。SMU 在线材料 adapter 尚未实现。
 
 新增的 [Codex ↔ DSH 连接层](docs/BRIDGE.md) 接收简短执行目标，让官方 DSH 自主完成文件任务，并返回真实产物内容供调用方验收。支持后台提交、状态、短等待、结果、同会话修改和明确验收；使用独立任务工作区与 SDK profile。[验证记录](docs/BRIDGE-VALIDATION.md) 区分真实 Flash 链路和跨平台受控测试。本分支 PR 依赖资料插件 PR #1，两者均待审。
 
