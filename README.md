@@ -2,7 +2,9 @@
 
 耿越自己的资料输入插件。独立 Python 后端连接 Canvas 或本地课件，通过原生 DSH service、provider 和工具提供来源、课程目录、刷新、导入、正文/文件读取及错误状态。学校来源不表示学习者学籍。
 
-本版只处理资料输入与输出。Canvas HTML 和 UTF-8 文本可直接读取；PDF/Word 等返回原始字节并标明需要解析器，不能把“已下载”当作“已理解”。不生成 AI 总结，不做知识整理、学生 profile 或新网页。SMU adapter 尚未实现。
+资料插件处理资料输入与输出。Canvas HTML 和 UTF-8 文本可直接读取；PDF/Word 等返回原始字节并标明需要解析器，不能把“已下载”当作“已理解”。插件本身不生成 AI 总结，不做知识整理、学生 profile 或新网页。SMU adapter 尚未实现。
+
+新增的 [Codex ↔ DSH 连接层](docs/BRIDGE.md) 接收简短执行目标，让官方 DSH 自主完成文件任务，并返回真实产物内容供调用方验收。支持后台提交、状态、短等待、结果、同会话修改和明确验收；使用独立任务工作区与 SDK profile。[验证记录](docs/BRIDGE-VALIDATION.md) 区分真实 Flash 链路和跨平台受控测试。本分支 PR 依赖资料插件 PR #1，两者均待审。
 
 ## 首次配置
 
