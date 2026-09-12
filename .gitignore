@@ -1,0 +1,15 @@
+.env
+.env.*
+!.env.example
+state/
+runtime/
+work/
+node_modules/
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+dist/
+*.tgz
+sources.local.json
+
