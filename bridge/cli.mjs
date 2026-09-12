@@ -110,36 +110,58 @@ async function main() {
   };
   if (command === 'submit') return print(await api('/v1/tasks', await request()));
   if (command === 'fast') {
+    const timeout = Number(values['--timeout-ms'] ?? 50000);
+    if (!Number.isFinite(timeout) || timeout < 0 || timeout > 50000) throw new Error('WAIT_TIMEOUT_MUST_BE_0_TO_50000');
     const envelope = await request();
     const {fast_review: reviewRequest, ...taskRequest} = envelope;
+    // Legacy field name only: this optional continuation is model self-check,
+    // never an independent caller review. Require the ordinary goal field.
+    if (reviewRequest && (typeof reviewRequest.goal !== 'string' || !reviewRequest.goal.trim() || 'guidance' in reviewRequest)) throw new Error('FAST_SELF_CHECK_REQUIRES_GOAL_NO_GUIDANCE');
     const startedAt = new Date().toISOString();
     const receipt = await api('/v1/tasks', taskRequest);
     const taskId = receipt.task_id;
+    const report = {mode: 'fast', started_at: startedAt, task_id: taskId, receipt, runs: [], caller_review: 'pending', self_check: {requested: Boolean(reviewRequest), kind: 'same_session_model_self_check', status: 'not_started'}};
     const waitRun = async (runId) => {
-      const deadline = Date.now() + Number(values['--timeout-ms'] ?? 50000);
+      const deadline = Date.now() + timeout;
       for (;;) {
         const state = await api('/v1/tasks/' + encodeURIComponent(taskId));
+        report.session_id = state.session_id;
+        report.last_state = state;
         const run = state.runs.find(item => item.run_id === runId);
         if (!run) throw new Error('RUN_NOT_FOUND');
         if (terminal.has(run.status)) return {state, run};
         if (Date.now() >= deadline) throw new Error('FAST_WAIT_TIMEOUT');
-        await delay(100);
+        await delay(Math.min(100, Math.max(1, deadline - Date.now())));
       }
     };
     const fetchRun = async runId => {
       const result = await api('/v1/tasks/' + encodeURIComponent(taskId) + '/result?run_id=' + encodeURIComponent(runId));
       const artifacts = {};
+      // Preserve the result even if an artifact download subsequently fails.
+      report.runs.push({result, artifacts});
       for (const item of result.artifacts ?? []) artifacts[item.path] = await api('/v1/tasks/' + encodeURIComponent(taskId) + '/artifact?run_id=' + encodeURIComponent(runId) + '&path=' + encodeURIComponent(item.path));
       return {result, artifacts};
     };
-    const runs = [];
-    let current = await waitRun(receipt.run_id); runs.push(await fetchRun(current.run.run_id));
-    if (reviewRequest) {
-      const reviewPayload = {...reviewRequest, goal: reviewRequest.goal ?? reviewRequest.guidance}; delete reviewPayload.guidance;
-      const reviewReceipt = await api('/v1/tasks/' + encodeURIComponent(taskId) + '/continue', reviewPayload);
-      current = await waitRun(reviewReceipt.run_id); runs.push(await fetchRun(current.run.run_id));
+    try {
+      let current = await waitRun(receipt.run_id); await fetchRun(current.run.run_id);
+      if (current.run.status !== 'completed') throw new Error('FAST_RUN_NOT_COMPLETED');
+      if (reviewRequest) {
+        report.self_check.status = 'starting';
+        const reviewReceipt = await api('/v1/tasks/' + encodeURIComponent(taskId) + '/continue', reviewRequest);
+        report.self_check.receipt = reviewReceipt;
+        report.self_check.status = 'running';
+        current = await waitRun(reviewReceipt.run_id); await fetchRun(current.run.run_id);
+        report.self_check.status = current.run.status;
+        if (current.run.status !== 'completed') throw new Error('FAST_SELF_CHECK_NOT_COMPLETED');
+      }
+      report.ok = true;
+    } catch (error) {
+      report.ok = false;
+      report.error = {code: /^[A-Z0-9_]+$/.test(error.code ?? '') ? error.code : /^[A-Z0-9_]+$/.test(error.message) ? error.message : 'FAST_OPERATION_FAILED'};
+      process.exitCode = 1;
     }
-    return print({mode: 'fast', started_at: startedAt, finished_at: new Date().toISOString(), task_id: taskId, session_id: current.state.session_id, runs});
+    report.finished_at = new Date().toISOString();
+    return print(report);
   }
   if (command === 'status' && !values['--task']) return print(await api('/v1/tasks'));
   if (!values['--task']) throw new Error('TASK_ID_REQUIRED');
