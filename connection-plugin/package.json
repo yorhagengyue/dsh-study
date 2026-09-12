@@ -1,11 +1,11 @@
 {
   "name": "@yorhagengyue/dsh-study-connection",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "main": "index.mjs",
   "exports": {".": "./index.mjs", "./cordis.patch.yml": "./cordis.patch.yml"},
-  "files": ["*.mjs", "web", "cordis.patch.yml"],
+  "files": ["*.mjs", "cordis.patch.yml"],
   "dsh": {"bundle": {"patch": "./cordis.patch.yml"}},
   "engines": {"node": ">=22.16"},
   "peerDependencies": {

@@ -1,13 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,readFileSync,mkdirSync} from 'node:fs';
+import {mkdtempSync,readFileSync,mkdirSync,readdirSync,existsSync,symlinkSync,unlinkSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {write,hash,publicEvent,redactor} from '../files.mjs';
-import {discover,validateProfile,compileProfile,activeProfile} from '../context.mjs';
+import {write,hash,publicEvent,redactor,readRecord} from '../files.mjs';
+import {discover,buildCatalog,activeCatalog,contextIndex,readSource,setSource} from '../context.mjs';
 import {StudyConnection} from '../engine.mjs';
+import {loadRequest} from '../../app/connection-client.mjs';
 
 const fixture=()=>mkdtempSync(join(tmpdir(),'study-connection-'));
+test('Markdown request preserves Chinese instructions and typed controls',()=>{
+ const dir=fixture(),path=join(dir,'task.md');write(path,'---\nid: md-task\nreasoning_effort: max\nuse_context: false\n---\n解释完整，不必过短。');
+ assert.deepEqual(loadRequest(path),{id:'md-task',reasoning_effort:'max',use_context:false,goal:'解释完整，不必过短。'});
+});
 test('Discovery follows canonical relative school links, excludes archive, secrets and unrelated project documents',()=>{
  const dir=fixture(),home=join(dir,'user'),desktopPath=join(dir,'Desktop');mkdirSync(desktopPath,{recursive:true});
  const canonical=join(desktopPath,'context','shared','CLAUDE.md');
@@ -18,13 +23,6 @@ test('Discovery follows canonical relative school links, excludes archive, secre
  const d=discover({home,desktopPath,paths:[join(home,'.env')]});
  assert(d.sources.some(s=>s.path.endsWith('SCHOOL.md')));assert(!d.sources.some(s=>s.path.includes('archive')));assert(!d.sources.some(s=>s.path.endsWith('.env')));
  assert(d.skipped.some(s=>s.reason==='historical_reference'));
-});
-test('Exact quotes required; unsupported or fabricated facts do not enter the profile',()=>{
- const bundle={sources:[{id:'s',content:'本人学习两个课程。',sha256:'abc'}]};
- const p=validateProfile(JSON.stringify({facts:[{category:'education',text:'学习两个课程',quote:'学习两个课程',source_id:'s'},{category:'person',text:'金融专业',quote:'金融学专业',source_id:'s'}]}),bundle);
- assert.equal(p.facts.length,1);assert.equal(p.rejected.length,1);
- const dir=fixture();compileProfile(dir,{id:'p',version:1,...p},bundle);assert.equal(activeProfile(dir).facts.length,1);
- assert.throws(()=>validateProfile('{"facts":[]}',bundle),/NO_GROUNDED/);
 });
 test('Secret values and hidden reasoning are excluded from public evidence',()=>{
  const dir=fixture();write(join(dir,'.env'),'DEEPSEEK_API_KEY=sk-01234567890123456789\n');
@@ -46,16 +44,51 @@ test('Native run persists complete input/output, idempotent submit and same-sess
  assert.equal(r.session_id,next.session_id);assert.equal(next.output,'完整答案');assert.equal(calls(),2);
  assert.equal(readFileSync(join(dir,'connection','runs','one','output.md'),'utf8'),'完整答案');engine.dispose();
 });
-test('Render proof needs exact output and cannot manufacture external user send timing',async()=>{
- const {engine}=harness();const r=await engine.submit({id:'one',goal:'解释'});await new Promise(r=>setTimeout(r,20));
- assert.throws(()=>engine.display(r.id,{output_hash:'wrong',visible:true,chars:4}),/DISPLAY_NOT_COMPLETE/);
- engine.display(r.id,{output_hash:hash(r.output),visible:true,chars:r.output.length,rendered_ms:Date.now(),user_to_render_ms:30});
- assert.equal(r.display.user_to_render_ms,null);assert(r.metrics.api_to_render_ack_ms>=0);assert.equal(r.review.decision,'pending_review');
- engine.review('one',{decision:'accepted',reviewer:'independent-test',reasoning:'read exact expected answer'});assert.equal(r.review.decision,'accepted');engine.dispose();
+test('A new request cannot overwrite a legacy run or unreadable evidence directory',async()=>{
+ const {engine,dir,calls}=harness(),old=join(dir,'connection','runs','legacy');write(join(old,'state.json'),{schema_version:2});write(join(old,'output.md'),'Original evidence');
+ await assert.rejects(engine.submit({id:'legacy',goal:'New request'}),/RUN_ID_RESERVED/);
+ assert.equal(calls(),0);assert.equal(readFileSync(join(old,'output.md'),'utf8'),'Original evidence');engine.dispose();
 });
-test('Disabled facts are not injected; source tools remain untouched',async()=>{
- const {engine,dir}=harness();const bundle={sources:[]};compileProfile(dir,{id:'p',version:1,facts:[{id:'f1',category:'person',text:'active person',enabled:true},{id:'f2',category:'person',text:'disabled person',enabled:false}],unknowns:[],rejected:[]},bundle);
- const r=await engine.submit({id:'p-test',goal:'who'});assert(r.input.effective_prompt.includes('active person'));assert(!r.input.effective_prompt.includes('disabled person'));assert.deepEqual(r.profile_used.fact_ids,['f1']);engine.dispose();
+function catalogFixture(dir) {
+ const home=join(dir,'person'),desktopPath=join(dir,'Desktop'),file=join(home,'school.md');mkdirSync(desktopPath,{recursive:true});
+ write(file,'# Example school\n\nCourse Alpha special detail.\n'+('long private text\n'.repeat(60))+'End of detail.');
+ const bundle=discover({home,desktopPath,paths:[file]});buildCatalog(dir,bundle);return{file,bundle,id:bundle.sources[0].id};
+}
+test('Catalog contains pointers, not source bodies; reads are current, paginated, redacted and revocable',()=>{
+ const dir=fixture(),{file,id}=catalogFixture(dir);
+ assert(!contextIndex(dir).content.includes('Course Alpha'));
+ assert(!readFileSync(join(dir,'connection','context','CATALOG.md'),'utf8').includes('long private text'));
+ const one=readSource(dir,{source_id:id,max_chars:256});assert(one.next_line);assert(one.content.length<=256);
+ const next=readSource(dir,{source_id:id,start_line:one.next_line,max_chars:256});assert.equal(next.start_line,one.end_line+1);
+ write(file,'# Updated\nsecret text');const newer=readSource(dir,{source_id:id},x=>x.replace('secret','[REDACTED]'));assert(newer.changed_since_index);assert(!newer.content.includes('secret'));
+ setSource(dir,id,false);assert.throws(()=>readSource(dir,{source_id:id}),/DISABLED/);assert.throws(()=>readSource(dir,{source_id:'unregistered'}),/NOT_REGISTERED/);
+});
+test('Brief is injected in full; detailed documents and old profiles are not preloaded; evidence is Markdown',async()=>{
+ const {engine,dir}=harness(),{id}=catalogFixture(dir);
+ write(join(dir,'connection','context','BRIEF.md'),'# Brief\nSimple stable preference.');
+ write(join(dir,'connection','active-profile.json'),{facts:['obsolete profile']});
+ const r=await engine.submit({id:'index-task',goal:'Explain'});await new Promise(r=>setTimeout(r,20));
+ assert(r.input.effective_prompt.includes('Simple stable preference'));assert(r.input.effective_prompt.includes('INDEX.md'));
+ assert(!r.input.effective_prompt.includes('Course Alpha'));assert(!r.input.effective_prompt.includes('obsolete profile'));
+ assert.equal(r.metrics.preloaded_source_bytes,0);assert.equal(r.metrics.user_to_visible_ms,null);
+ assert(readdirSync(join(dir,'connection','runs',r.id)).every(p=>p.endsWith('.md')));
+ assert.equal(readRecord(join(dir,'connection','runs',r.id,'STATUS.md')).output,'完整答案');
+ assert.equal(r.review.decision,'pending_review');engine.review(r.id,{decision:'accepted',reviewer:'test',reasoning:'Read actual fixture output'});
+ const engine2=new StudyConnection(engine.controller,engine.config);assert.equal(engine2.get(r.id).review.decision,'accepted');
+ assert.equal(engine.readContext({source_id:id,query:'Alpha'}).found,true);
+ const off=await engine.submit({id:'no-background',goal:'Explain',use_context:false});assert.equal(off.input.effective_prompt,'Explain');engine.dispose();engine2.dispose();
+});
+test('Refresh preserves brief and disabled sources and never calls the model',async()=>{
+ const {engine,dir,calls}=harness(),{bundle,id}=catalogFixture(dir);engine.sources=()=>bundle;
+ write(join(dir,'connection','context','BRIEF.md'),'Custom brief');setSource(dir,id,false);
+ const result=await engine.onboard();assert.equal(result.model_calls,0);assert.equal(calls(),0);
+ assert.equal(readFileSync(join(dir,'connection','context','BRIEF.md'),'utf8'),'Custom brief');assert.equal(activeCatalog(dir).sources[0].enabled,false);engine.dispose();
+});
+test('Explicit history sources only return user text and reject invalid ranges',()=>{
+ const dir=fixture(),home=join(dir,'home'),desktopPath=join(dir,'Desktop');mkdirSync(desktopPath,{recursive:true});
+ const history=join(dir,'history.jsonl');write(history,JSON.stringify({type:'user',message:{content:'User material'}})+'\n'+JSON.stringify({type:'assistant',message:{content:'Private assistant material'}}));
+ const bundle=discover({home,desktopPath,paths:[history]});buildCatalog(dir,bundle);const out=readSource(dir,{source_id:bundle.sources[0].id});assert(out.content.includes('User material'));assert(!out.content.includes('Private assistant'));
+ const source=activeCatalog(dir).sources[0];assert.throws(()=>readSource(dir,{source_id:source.id,start_line:0}),/INVALID_READ/);
 });
 test('Health is lossless JSON for native DSH tool output validation',async()=>{
  const {engine}=harness();const health=await engine.health();assert.deepEqual(health,JSON.parse(JSON.stringify(health)));engine.dispose();

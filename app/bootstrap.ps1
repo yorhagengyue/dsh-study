@@ -20,5 +20,5 @@ if ($LASTEXITCODE -ne 0) { throw 'Application installation failed' }
 $skillConfig = Join-Path $env:USERPROFILE '.codex\skills\dsh-dialogue\connection.local.json'
 & $nodeExe (Join-Path $PSScriptRoot 'setup-key.mjs') $skillConfig
 if ($LASTEXITCODE -ne 0) { throw 'Model credential setup was not completed' }
-& $nodeExe (Join-Path $PSScriptRoot 'launch.mjs') --config $skillConfig --restart-owned --open
+& $nodeExe (Join-Path $PSScriptRoot 'launch.mjs') --config $skillConfig --restart-owned
 if ($LASTEXITCODE -ne 0) { throw 'Application startup needs attention; see the reported reason' }

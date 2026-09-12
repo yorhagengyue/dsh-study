@@ -19,6 +19,18 @@ export function write(path, data) {
   renameSync(tmp, path);
 }
 export const read = path => JSON.parse(readFileSync(path, 'utf8'));
+// Human-readable Markdown remains the durable record. The bounded metadata block
+// lets the plugin recover exact IDs/timestamps without a second JSON sidecar.
+export function writeRecord(path, title, value, body = '') {
+  write(path, `# ${title}\n\n${body}${body ? '\n\n' : ''}<!-- dsh-state -->\n\`\`\`json\n${JSON.stringify(value, null, 2)}\n\`\`\`\n<!-- /dsh-state -->\n`);
+}
+export function readRecord(path) {
+  const text=readFileSync(path,'utf8');
+  const start=text.lastIndexOf('<!-- dsh-state -->\n```json\n');
+  const end=text.indexOf('\n```\n<!-- /dsh-state -->',start);
+  if(start<0||end<0)throw new Error('INVALID_MARKDOWN_RECORD');
+  return JSON.parse(text.slice(start+'<!-- dsh-state -->\n```json\n'.length,end));
+}
 export function safeId(value) {
   if (typeof value !== 'string' || !/^[a-zA-Z0-9_-]{1,100}$/.test(value)) throw new Error('INVALID_ID');
   return value;

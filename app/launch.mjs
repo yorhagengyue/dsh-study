@@ -9,11 +9,6 @@ const args=process.argv.slice(2),idx=args.indexOf('--config');
 const configPath=resolve(idx<0?join(dirname(fileURLToPath(import.meta.url)),'..','app.local.json'):args[idx+1]);
 const config=JSON.parse(readFileSync(configPath,'utf8')),dir=join(config.dsh_root,'runtime','study-app');mkdirSync(dir,{recursive:true});
 const port=new URL(config.base_url).port;
-function openApp(url) {
-  if(process.platform==='win32') {
-    const child=spawn('powershell.exe',['-NoProfile','-Command','Start-Process -FilePath $env:DSH_STUDY_OPEN_URL'],{windowsHide:true,stdio:'ignore',env:{...process.env,DSH_STUDY_OPEN_URL:url}});child.unref();
-  }else {const child=spawn('open',[url],{stdio:'ignore',detached:true});child.unref();}
-}
 if(args.includes('--serve')) {
   const env=envValues(config.dsh_root);
   if(!env.DEEPSEEK_API_KEY)throw new Error('DEEPSEEK_API_KEY_REQUIRED_IN_PROJECT_ENV');
@@ -55,10 +50,5 @@ if(args.includes('--serve')) {
   }
   if(!ready)throw new Error('APP_STARTUP_NOT_READY_CHECK_RUNTIME');
   await new Client(config).call('initialize',{});
-  if(args.includes('--open')) {
-    // A URL fragment survives the normal 303 login redirect and never reaches the HTTP server.
-    const env=envValues(config.dsh_root);
-    openApp(config.base_url+'/?token='+encodeURIComponent(env.STUDY_LAUNCH_TOKEN)+'#study');
-  }
-  console.log(JSON.stringify({ready:true,url:config.base_url+'/study',window_open_requested:args.includes('--open'),window_verified:false}));
+  console.log(JSON.stringify({ready:true,index:join(config.workspace,'connection','INDEX.md'),presentation:'markdown',window_open_requested:false}));
 }
