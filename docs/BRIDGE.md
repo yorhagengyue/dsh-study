@@ -108,3 +108,6 @@ node bridge/ssh-cli.mjs continue --target mac-mini --task TASK_ID --request work
 ```
 
 请求中的 workspace 是远端任务目录；`--request` 和 `--out` 是调用端文件。请求以 UTF-8 stdin 传输，远端 CLI 的 `--request -` 接收，避免 PowerShell 管道编码问题。产物通过 SSH 返回字节，在调用端核验长度和 SHA 后保存。远端模型和 Bridge 凭证始终留在远端根 `.env`，服务仍仅监听 loopback。入口强制 BatchMode 和 StrictHostKeyChecking，不处理账号登录、自动接受未知主机密钥或自动重放失败任务。
+# Fast path
+
+`node bridge/ssh-cli.mjs fast --target mac-mini --request .\\request.json` performs one remote submit, 100 ms event poll, result and artifact retrieval. The JSON response retains every run, event list, result and artifact envelope. An optional `fast_review` triggers one same-session DSH self-check; caller acceptance still requires the explicit `review` endpoint.
