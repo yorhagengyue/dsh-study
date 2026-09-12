@@ -8,6 +8,18 @@ import {runRemote, remoteInvocation, shellQuote} from './ssh-cli.mjs';
 import {captureSession} from './session-evidence.mjs';
 
 const hash = b => createHash('sha256').update(b).digest('hex');
+export function validateBundle(bundle) {
+  if(bundle.request?.task_id)throw Error('TASK_ID_MUST_BE_AT_BUNDLE_TOP_LEVEL');
+  if(!bundle.source_text)throw Error('SOURCE_REQUIRED');
+}
+export async function persistVerdict(directory, input, verdict) {
+  // A caller may naturally place its already-written verdict in the evidence dir.
+  // Preserve that exact file; never overwrite it or fail merely for its presence.
+  if(resolve(input)!==join(resolve(directory),'verdict.json'))
+    await writeFile(join(directory,'verdict.json'),JSON.stringify(verdict,null,2),{flag:'wx'});
+}
+
+async function main() {
 const root = fileURLToPath(new URL('..', import.meta.url));
 const [command, directory, input] = process.argv.slice(2);
 const dir = resolve(directory ?? '.');
@@ -36,7 +48,7 @@ async function verifySource(bundle) {
 
 if (command === 'dispatch') {
   const bundle = await read(resolve(input));
-  if (!bundle.source_text) throw Error('SOURCE_REQUIRED');
+  validateBundle(bundle);
   await mkdir(dir, {recursive:true});
   const started = new Date().toISOString();
   await save('dispatch.json', {started_at:started, bundle});
@@ -77,7 +89,7 @@ if (command === 'dispatch') {
   const reviewInput = await read(join(dir, 'review-input.json'));
   if (!['accepted','changes_requested'].includes(verdict.decision) || !verdict.reviewer || !verdict.reasoning || verdict.run_id !== reviewInput.run_id) throw Error('EXPLICIT_REVIEW_REQUIRED');
   if (verdict.decision === 'accepted' && reviewInput.status !== 'completed') throw Error('RUN_NOT_COMPLETED');
-  await save('verdict.json', verdict);
+  await persistVerdict(dir,input,verdict);
   const response = await call(state.bundle.target, 'review', {'--task':reviewInput.task_id,'--run':reviewInput.run_id,'--decision':verdict.decision,'--notes':`${verdict.reviewer}: ${verdict.reasoning}`});
   await save('review-response.json', response);
   if (response.review?.status !== verdict.decision) throw Error('REVIEW_NOT_PERSISTED');
@@ -85,3 +97,5 @@ if (command === 'dispatch') {
   await save('timing.json', {started_at:state.started_at,finished_at:finished,elapsed_ms:Date.parse(finished)-Date.parse(state.started_at),decision:response.review.status,scope:'dispatch through actual caller review and persisted review response; source staging excluded'});
   console.log(JSON.stringify({elapsed_ms:Date.parse(finished)-Date.parse(state.started_at),review:response.review}));
 } else throw Error('USE_DISPATCH_OR_REVIEW');
+}
+if(process.argv[1] && resolve(process.argv[1])===fileURLToPath(import.meta.url)) await main();
