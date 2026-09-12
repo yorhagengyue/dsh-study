@@ -12,7 +12,7 @@
 | @deepseek-ai/dsh-sdk-protocol | 0.1.5-rc.2 |
 | @deepseek-ai/dsh-tools | 0.1.5-rc.2 |
 
-独立 `study-bridge` profile，官方 stdio JSON-RPC；serverInfo 为 `deepseek-harness-sdk-runtime / 0.0.1`。使用 `deepseek-official / deepseek-flash`、low reasoning、每步骤 maxTokens 2048。[DeepSeek 2026-09-10 官方公告](https://www.deepseek.com/en/news/deepseek-v4-1-flash/) 明确 V4.1 Flash 的 API 模型 ID 为 `deepseek-flash`。模型与产物验收实际在 Windows 运行，不以 launcher 版本代替所有组件版本。
+独立 `study-bridge` profile，官方 stdio JSON-RPC；serverInfo 为 `deepseek-harness-sdk-runtime / 0.0.1`。使用 `deepseek-official / deepseek-flash`、low reasoning、每步骤 maxTokens 2048。[DeepSeek 2026-09-10 官方公告](https://www.deepseek.com/en/news/deepseek-v4-1-flash/) 明确 V4.1 Flash 的 API 模型 ID 为 `deepseek-flash`。Windows 与 Mac 实机均使用上述实际组件版本，不以 launcher 版本代替所有组件版本。
 
 ## 真实两轮任务
 
@@ -52,14 +52,42 @@ CLI submit 含 Node 启动的本机观测耗时分别约 0.17 秒和 0.19 秒，
 
 ## 受控验证
 
-Windows 本机最终运行：`DSH_TEST_INSTALL` 指向现有官方安装，`node --test bridge/tests/*.test.mjs` **28/28 通过**。其中两项实际加载官方 registry 与 Loader/request extension，但不发送模型请求。其他测试使用受控 adapter，证明 HTTP、持久化、队列和产物行为，不能代替真实模型验收。
+Windows 本机最终运行：`DSH_TEST_INSTALL` 指向现有官方安装，`node --test bridge/tests/*.test.mjs` **36/36 通过**。其中两项实际加载官方 registry 与 Loader/request extension，但不发送模型请求。其他测试使用受控 adapter，证明 HTTP、持久化、队列和产物行为，不能代替真实模型验收。新增 SSH/stdin 检查覆盖中文字节、请求大小、主机认证、远端参数引用、调用端文件导出及真实 CLI 对 HTTP artifact envelope 的处理。
 
 覆盖：接受不等于完成、错误会话/消息归属、部分或中断回答、error/blocked/aborted/max-tokens、失败码脱敏、凭证仅根 .env、源白名单、目录读写边界、符号链接、产物缺失/超限/部分内容、幂等、并发任务、工作区占用、明确验收、客户端不再连接时继续执行、取消等待退出、超时、重启不重放、旧快照可读、重复 Broker 不破坏已有状态。
 
 另有无模型真实 initialize → close 验证，观测 exitCode=0，关闭后初始化被 SESSION_CLOSED 拒绝。
 
-Windows/macOS GitHub Actions 的最终运行结果在提交后的交付记录中列出；CI 不持有任何模型或学校凭证。无 `DSH_TEST_INSTALL` 时运行 26 项、明确跳过上述两项本机官方安装检查。
+[Windows/macOS GitHub Actions 34689031958](https://github.com/yorhagengyue/dsh-study/actions/runs/34689031958) 在代码提交 `8148605` 实际成功，Node 22.23.2，两个平台各 34 通过、0 失败，明确跳过 2 项本机官方安装检查。CI 不持有任何模型或学校凭证。Mac Mini 本机还实际通过 16/16 runtime+stdin 检查，包含官方 registry 和完整 Loader，无模型调用。
+
+## Windows → Mac 实机往返
+
+追加授权后，当前 Windows 安装了签名有效的官方 Tailscale 1.102.4，用户完成 tailnet 登录。实测 MagicDNS、目标身份、TCP/22、普通 OpenSSH 无交互登录均成功，直连延迟约 5 ms。使用既有 tailnet SSH 授权，主机键正常核验；没有猜密码或关闭主机密钥检查。
+
+Mac 实机为 Darwin 24.6.0 arm64，Node 25.1.0、Python 3.12.12。新项目与 profile 完全独立；原 0.1.2-rc.1 源仓及 `~/.dsh` 保留。独立后端只含 personal-example，监听 loopback 18766；独立 Bridge 监听 loopback 18767。凭证仅目标项目被忽略的根 `.env`（0600），通过 SSH stdin 安全配置，没有复制学校缓存或学生记录。
+
+调用端使用 `bridge/ssh-cli.mjs`：本地 UTF-8 JSON 经 SSH stdin 交给远端 CLI，后者调用认证的 loopback API；artifact 的真实 base64 字节经 SSH 回到 Windows，再核验长度/SHA 后写入本地文件。服务没有对全部网卡公开。
+
+| 观察项 | Mac 首轮 | Mac 同会话修正 |
+| --- | --- | --- |
+| task_id | 8b7d2c5f-f5af-4c5c-9b64-8cf1d36b11a8 | 相同 |
+| session_id | 591966a0-a6fd-477f-81c0-53352a36c127 | 相同 |
+| run_id | 951fe3ca-77ef-4b43-b34a-dcbde920893b | b4853686-e268-41ae-8031-99f62959be76 |
+| 接收 → DSH receipt | 172 ms | 6 ms |
+| 接收 → 完整模型响应 | 1,233 ms | 1,123 ms |
+| 接收 → 文件完成 | 7,933 ms | 5,431 ms |
+| 实际模型步骤 | 6 | 4 |
+| 回到 Windows 的 report.md | 735 字节 | 851 字节 |
+| 修改完成时/核验后 | pending → changes_requested | pending → accepted |
+
+Mac 首轮的 study_read 与 write、修正轮的 read/edit/read 均有对应成功结果，完整模型响应与 completed 终态齐全。CLI submit 含 SSH 的观测耗时均约 0.40 秒，迅速返回 queued。初始目标没有提供算术数字或具体步骤。文件事实与 323 字节合成课件一致；修正新增正确英文说明，原文件完整保留为新版前缀。Windows 上再次读取旧快照仍为相同 735 字节。重复提交首轮幂等键没有增加运行。
+
+Mac 首轮 SHA-256：`e1a3caf9bce6496b43b722daf4f4ea9c43b4438eee48fe8b5ac1d68d86bad407`。
+
+Mac 修正版 SHA-256：`ebf96521f4cb3cc76d865a7b0801623fed414e43f8bca8ba501295f0ec43f0c1`。
+
+Windows 调用端证据：被忽略的 `runtime/bridge-mac-live-validation.json`、`work/received-mac-v1.md`、`work/received-mac-v2.md`；最终显式 caller review 保存在 Mac 的任务状态中。网络、SSH、依赖、模型执行与文件往返均已实际验证。
 
 ## 未验证边界
 
-macOS 完整官方 DSH + 真实模型 + 本地资料链路未运行，不能以跨平台受控测试替代。当前 SDK 不提供重启恢复会话，只有仍存活的任务进程支持同会话修改。文件与工具约束属于应用层，未宣称 VM/OS 隔离。未做模型质量、长期负载、大规模资料任务或真实学生学习评估。原 StudyOS 工作区状态与开始时一致，未改变既有学习日志。
+当前 SDK 不提供重启恢复会话，只有仍存活的任务进程支持同会话修改。文件与工具约束属于应用层，未宣称 VM/OS 隔离。没有自动开机启动与长期负载保证，机器重启后应重新启动服务并明确创建新任务。未做模型质量、大规模资料任务或真实学生学习评估。原 StudyOS 工作区状态与开始时一致，未改变既有学习日志。
