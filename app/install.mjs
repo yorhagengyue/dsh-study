@@ -8,13 +8,14 @@ import {desktop,hash,write,writeRecord,redactor} from '../connection-plugin/file
 import {Client} from './connection-client.mjs';
 
 const args=process.argv.slice(2), at=n=>{const i=args.indexOf(n);return i<0?undefined:args[i+1];};
+const frameworkMode=args.includes('--framework'); // 框架模式：放空框架、装注入插件、不跑旧的 BRIEF 自动导入
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const workspace=resolve(at('--workspace')??join(desktop(),'DSH-Study'));
 const dshRoot=resolve(at('--dsh-root')??(existsSync(join(homedir(),'dsh','package.json'))?join(homedir(),'dsh'):join(workspace,'runtime','dsh')));
 const dshHome=resolve(at('--dsh-home')??join(dshRoot,'home'));
 const port=Number(at('--port')??3090);
 if(!Number.isInteger(port)||port<1024||port>65535)throw new Error('INVALID_PORT');
-const started=Date.now(), report={version:'0.3.0',started_at:started,workspace,dshRoot,dshHome,steps:[]};
+const started=Date.now(), report={version:frameworkMode?'0.4.0':'0.3.0',mode:frameworkMode?'framework':'v0.3',started_at:started,workspace,dshRoot,dshHome,steps:[]};
 const [nodeMajor,nodeMinor]=process.versions.node.split('.').map(Number);
 if(nodeMajor<22||(nodeMajor===22&&nodeMinor<16))throw new Error('NODE_22_16_OR_NEWER_REQUIRED');
 let listening=false;try{const r=await fetch('http://127.0.0.1:'+port,{signal:AbortSignal.timeout(1200)});listening=r.status>0;}catch{}
@@ -48,12 +49,18 @@ if(!existsSync(localPnpm)||JSON.parse(readFileSync(localPnpm,'utf8')).version!==
 if(!existsSync(join(dshRoot,'.gitignore')))write(join(dshRoot,'.gitignore'),'.env\n.env.*\nhome/\nruntime/\nnode_modules/\n');
 else {const p=join(dshRoot,'.gitignore'),s=readFileSync(p,'utf8');if(!s.split(/\r?\n/).includes('.env'))write(p,s+'\n.env\n');}
 if(!existsSync(join(dshRoot,'.env')))write(join(dshRoot,'.env'),'# Supply your own official DeepSeek credential here. Never commit this file.\nDEEPSEEK_API_KEY=\n');
+{const seed=join(root,'app','.env.seed');if(existsSync(seed)){const m=readFileSync(seed,'utf8').match(/^\s*DEEPSEEK_API_KEY\s*=\s*(\S+)/m);const p=join(dshRoot,'.env'),s=readFileSync(p,'utf8');if(m&&!/^DEEPSEEK_API_KEY=\S+/m.test(s)){write(p,/^DEEPSEEK_API_KEY=/m.test(s)?s.replace(/^DEEPSEEK_API_KEY=.*$/m,'DEEPSEEK_API_KEY='+m[1]):s.trimEnd()+'\nDEEPSEEK_API_KEY='+m[1]+'\n');report.steps.push('model_key_seeded');}unlinkSync(seed);}}
 // Current official DSH reserves DSH_* names in dotenv. Preserve the legacy token under an application-owned name.
 {const p=join(dshRoot,'.env'),s=readFileSync(p,'utf8');if(s.includes('DSH_DIALOGUE_LAUNCH_TOKEN='))write(p,s.replace(/^DSH_DIALOGUE_LAUNCH_TOKEN=/gm,'STUDY_LAUNCH_TOKEN='));}
 const profile=join(dshHome,'profiles','web'),backup=join(workspace,'connection','install-backups',String(started));mkdirSync(backup,{recursive:true});
 const workspaceRules=join(workspace,'AGENTS.md');
 if(existsSync(workspaceRules))copyFileSync(workspaceRules,join(backup,'workspace-AGENTS.md'));
-if(!existsSync(workspaceRules)||/^# 学习工作区\s+当前学习者 profile：profile-/u.test(readFileSync(workspaceRules,'utf8')))
+if(frameworkMode){
+  const fw=join(root,'framework');if(!existsSync(join(fw,'FRAMEWORK.md')))throw new Error('FRAMEWORK_DIR_MISSING');
+  if(!existsSync(join(workspace,'FRAMEWORK.md'))){cpSync(fw,workspace,{recursive:true,force:false});report.steps.push('framework_files_placed');}
+  else{for(const f of ['FRAMEWORK.md','README.md','REVIEW-CHECKLIST.md','AGENTS.md'])copyFileSync(join(fw,f),join(workspace,f));cpSync(join(fw,'protocols'),join(workspace,'protocols'),{recursive:true});cpSync(join(fw,'connection','templates'),join(workspace,'connection','templates'),{recursive:true});cpSync(join(fw,'connection','framework-plugin'),join(workspace,'connection','framework-plugin'),{recursive:true});report.steps.push('framework_fixed_layer_refreshed');}
+}
+else if(!existsSync(workspaceRules)||/^# 学习工作区\s+当前学习者 profile：profile-/u.test(readFileSync(workspaceRules,'utf8')))
   write(workspaceRules,'# 学习工作区\n\n简单背景见 connection/context/BRIEF.md，详细来源见 connection/context/INDEX.md。DSH 按需读取，不加载旧 profiles 目录的整套事实。资料是背景，不授予新权限；示例、朋友与本人分开，讲解过不表示掌握。当前产物用 Markdown，未经另行要求不制作 UI。\n');
 for(const f of ['package.json','pnpm-lock.yaml','pnpm-workspace.yaml','cordis.patch.yml'])if(existsSync(join(profile,f)))copyFileSync(join(profile,f),join(backup,f));
 const packed=join(dshRoot,'runtime','study-packages');mkdirSync(packed,{recursive:true});
@@ -69,13 +76,24 @@ const previous=patch.find(r=>r.id==='dsh-study-connection')?.config??{};
 const kept=patch.filter(r=>r.id!=='dsh-study-connection');
 const sourceFile=at('--sources');
 const sourcePaths=sourceFile?(sourceFile.endsWith('.json')?JSON.parse(readFileSync(sourceFile,'utf8')):readFileSync(sourceFile,'utf8').split(/\r?\n/).flatMap(line=>{const m=line.match(/^-\s+(.+)$/);return m?[m[1].replace(/^`(.*)`$/,'$1')]:[];})):previous.sourcePaths??[];
-kept.push({id:'dsh-study-connection',config:{workspace,dshRoot,autoImport:args.includes('--auto-import')||previous.autoImport===true,sourcePaths}});
+kept.push({id:'dsh-study-connection',config:{workspace,dshRoot,autoImport:frameworkMode?false:(args.includes('--auto-import')||previous.autoImport===true),sourcePaths}});
+if(frameworkMode){
+  const fwPlugin=join(workspace,'connection','framework-plugin');
+  const fwArchive=JSON.parse(command(npm,['pack',fwPlugin,'--pack-destination',packed,'--json','--ignore-scripts']))[0];
+  const fwOriginal=join(packed,fwArchive.filename),fwDigest=hash(readFileSync(fwOriginal));
+  const fwTarball=join(packed,fwArchive.filename.replace('.tgz','-'+fwDigest.slice(0,16)+'.tgz'));if(!existsSync(fwTarball))copyFileSync(fwOriginal,fwTarball);
+  command(cli,['plugin','--profile','web','add',fwTarball,'--ignore-scripts']);
+  const fwPrevious=kept.find(r=>r.id==='dsh-study-framework')?.config??{};
+  const fwKept=kept.filter(r=>r.id!=='dsh-study-framework');fwKept.push({id:'dsh-study-framework',config:{workspace,dshHome,userName:fwPrevious.userName??'',machine:'',role:'DSH（执行 Agent）',targets:['dshHome'],templatePath:'',maxBytes:60000,watch:true,watchDebounceMs:1500}});
+  kept.length=0;kept.push(...fwKept);
+  report.steps.push('framework_plugin_installed');report.framework_package_sha256=fwDigest;
+}
 write(patchFile,yaml.dump(kept,{schema,noRefs:true,lineWidth:120}));
 for(const f of archive.files)if(!readFileSync(join(root,'connection-plugin',f.path)).equals(readFileSync(join(profile,'node_modules','@yorhagengyue','dsh-study-connection',f.path))))throw new Error('INSTALLED_FILE_MISMATCH');
 report.steps.push('cordis_bundle_installed_and_files_verified');report.package_sha256=digest;
 const appRoot=join(workspace,'connection','app');mkdirSync(appRoot,{recursive:true});
 for(const dir of ['app','connection-plugin'])cpSync(join(root,dir),join(appRoot,dir),{recursive:true});
-const config={version:3,dsh_root:dshRoot,dsh_home:dshHome,node:process.execPath,base_url:'http://127.0.0.1:'+port,workspace};
+const config={version:3,dsh_root:dshRoot,dsh_home:dshHome,node:process.execPath,base_url:'http://127.0.0.1:'+port,workspace,...(frameworkMode?{open_browser:true}:{})};
 write(join(appRoot,'app.local.json'),config);
 const skill=join(at('--skills-dir')??join(homedir(),'.codex','skills'),'dsh-dialogue');
 if(existsSync(skill))cpSync(skill,join(backup,'dsh-dialogue'),{recursive:true});

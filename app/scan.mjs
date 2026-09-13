@@ -36,7 +36,8 @@ const COURSE_DIR = /(^[A-Z]{2,4}\s?\d{3}[A-Z]?$)|课件|课程|lecture|week\s?\d
 const RULE_FILE = /^(CLAUDE\.md|AGENTS\.md|\.cursorrules|GEMINI\.md|copilot-instructions\.md)$/i;
 
 const roots = [];
-const addRoot = (p, label) => { if (p && existsSync(p) && !existsSync(join(p, '.dsh-private')) && !roots.some(r => r.path.toLowerCase() === p.toLowerCase())) roots.push({path: p, label}); }; // 放了 .dsh-private 的根连名字都不列
+let privateDirs = 0; // 放了 .dsh-private 标记的目录数（根或子目录），只计数不记路径
+const addRoot = (p, label) => { if (!p || !existsSync(p)) return; if (existsSync(join(p, '.dsh-private'))) { privateDirs++; return; } if (!roots.some(r => r.path.toLowerCase() === p.toLowerCase())) roots.push({path: p, label}); }; // 放了 .dsh-private 的根连名字都不列
 for (const [name, label] of [['Desktop', '桌面'], ['Documents', '文档'], ['Downloads', '下载']]) addRoot(join(HOME, name), label);
 // 笔记库：Obsidian 登记的 vault
 let vaults = [];
@@ -79,7 +80,7 @@ const courseDirs = [];
 const calendars = [];
 const ruleFiles = [];
 const uncovered = [];   // 预算外或读不了
-let files = 0, bytes = 0, dirs = 0, stopped = null, privateDirs = 0;
+let files = 0, bytes = 0, dirs = 0, stopped = null;
 const topOf = (p, root) => { const rel = p.slice(root.length + 1); const i = rel.indexOf(sep); return join(root, i < 0 ? rel : rel.slice(0, i)); };
 function walk(dir, root, depth) {
   if (stopped) return;

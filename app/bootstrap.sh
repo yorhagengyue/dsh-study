@@ -15,7 +15,7 @@ if [ -z "$NODE_BIN" ] || [ "$("$NODE_BIN" -p '(()=>{const [a,b]=process.versions
   tar -xzf "$DEST/$NAME.tar.gz" -C "$DEST"
   NODE_BIN="$DEST/$NAME/bin/node"
 fi
-"$NODE_BIN" "$APP_SOURCE/app/install.mjs" --auto-import
+"$NODE_BIN" "$APP_SOURCE/app/install.mjs" --framework
 CONFIG="$HOME/.codex/skills/dsh-dialogue/connection.local.json"
 "$NODE_BIN" "$APP_SOURCE/app/setup-key.mjs" "$CONFIG"
 exec "$NODE_BIN" "$APP_SOURCE/app/launch.mjs" --config "$CONFIG" --restart-owned

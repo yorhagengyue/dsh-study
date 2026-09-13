@@ -44,7 +44,7 @@ export class FrameworkEngine {
 
   variables(role) {
     return {
-      userName: this.config.userName,
+      userName: this.config.userName || '（还不知道，第一次见面时问）',
       machine: this.config.machine || `${platform()} ${release()}（${hostname()}），DSH_HOME ${this.dshHome}`,
       workspace: this.workspace,
       role: role || this.config.role,

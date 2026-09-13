@@ -15,7 +15,7 @@ if (-not $nodeExe -or (& $nodeExe -p '(()=>{const [a,b]=process.versions.node.sp
   Expand-Archive -LiteralPath $zip -DestinationPath $downloadRoot -Force
   $nodeExe = Join-Path $downloadRoot "$name\node.exe"
 }
-& $nodeExe (Join-Path $PSScriptRoot 'install.mjs') --auto-import
+& $nodeExe (Join-Path $PSScriptRoot 'install.mjs') --framework
 if ($LASTEXITCODE -ne 0) { throw 'Application installation failed' }
 $skillConfig = Join-Path $env:USERPROFILE '.codex\skills\dsh-dialogue\connection.local.json'
 & $nodeExe (Join-Path $PSScriptRoot 'setup-key.mjs') $skillConfig
