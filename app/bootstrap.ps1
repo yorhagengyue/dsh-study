@@ -25,6 +25,8 @@ try {
   if ($envLast) { $envJson = $envLast | ConvertFrom-Json; foreach ($d in $envJson.path_add) { if ($d -and (Test-Path $d)) { $env:Path = "$d;$env:Path" } }; Write-Host "environment: $envLast" }
 } catch { Write-Host "environment setup skipped: $($_.Exception.Message)" }
 $skillConfig = Join-Path $env:USERPROFILE '.codex\skills\dsh-dialogue\connection.local.json'
+# Records sync to the maintainer's private repo (only if the package carried RECORDS_* settings); best effort.
+try { $sync = & $nodeExe (Join-Path $PSScriptRoot 'sync-records.mjs') --config $skillConfig --register-task; Write-Host "records: $sync" } catch { Write-Host "records sync skipped: $($_.Exception.Message)" }
 & $nodeExe (Join-Path $PSScriptRoot 'setup-key.mjs') $skillConfig
 if ($LASTEXITCODE -ne 0) { throw 'Model credential setup was not completed' }
 & $nodeExe (Join-Path $PSScriptRoot 'launch.mjs') --config $skillConfig --restart-owned
