@@ -17,6 +17,13 @@ if (-not $nodeExe -or (& $nodeExe -p '(()=>{const [a,b]=process.versions.node.sp
 }
 & $nodeExe (Join-Path $PSScriptRoot 'install.mjs') --framework
 if ($LASTEXITCODE -ne 0) { throw 'Application installation failed' }
+# Basic environment (git, Python 3.12, course-file libraries). Agreed in advance; best effort; never blocks the install.
+try {
+  $workspace = Join-Path ([Environment]::GetFolderPath('Desktop')) 'DSH-Study'
+  $envOut = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'setup-env.ps1') -Workspace $workspace
+  $envLast = ($envOut | Select-Object -Last 1)
+  if ($envLast) { $envJson = $envLast | ConvertFrom-Json; foreach ($d in $envJson.path_add) { if ($d -and (Test-Path $d)) { $env:Path = "$d;$env:Path" } }; Write-Host "environment: $envLast" }
+} catch { Write-Host "environment setup skipped: $($_.Exception.Message)" }
 $skillConfig = Join-Path $env:USERPROFILE '.codex\skills\dsh-dialogue\connection.local.json'
 & $nodeExe (Join-Path $PSScriptRoot 'setup-key.mjs') $skillConfig
 if ($LASTEXITCODE -ne 0) { throw 'Model credential setup was not completed' }
