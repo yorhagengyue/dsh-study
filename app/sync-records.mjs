@@ -1,8 +1,9 @@
 // 把学习工作区的记录同步到一个私有 Git 仓（给做系统的人看，用来改进）。
 // 用法：node app/sync-records.mjs [--config connection.local.json] [--register-task] [--quiet]
-// 凭证只从 <dsh_root>/.env 读：RECORDS_REPO=owner/repo + RECORDS_TOKEN=github_pat_…（或 RECORDS_REMOTE=完整 URL）。
+// 凭证只从 <dsh_root>/.env 读：RECORDS_REPO=owner/repo + RECORDS_SSH_KEY=私钥路径（相对 dsh_root）——deploy key 走 SSH；
+// 或 RECORDS_REPO + RECORDS_TOKEN=github_pat_…（HTTPS）；或 RECORDS_REMOTE=完整 URL。
 // 没配就什么都不做。永远不提交 .env、完整扫描清单、旧 profile 目录和代码目录。
-import {existsSync, readFileSync, writeFileSync, mkdirSync} from 'node:fs';
+import {existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync} from 'node:fs';
 import {join, resolve} from 'node:path';
 import {homedir, hostname} from 'node:os';
 import {spawnSync} from 'node:child_process';
@@ -22,12 +23,21 @@ function envValues(root) {
   return o;
 }
 const env = envValues(config.dsh_root);
-const remote = env.RECORDS_REMOTE || (env.RECORDS_REPO && env.RECORDS_TOKEN ? `https://x-access-token:${env.RECORDS_TOKEN}@github.com/${env.RECORDS_REPO.replace(/^\/+|\.git$/g, '')}.git` : null);
+const repoName = env.RECORDS_REPO ? env.RECORDS_REPO.replace(/^\/+|\.git$/g, '') : null;
+const sshKey = env.RECORDS_SSH_KEY ? resolve(config.dsh_root, env.RECORDS_SSH_KEY) : null;
+let remote = env.RECORDS_REMOTE || null;
+let gitEnv = {...process.env, GIT_TERMINAL_PROMPT: '0'};
+if (!remote && repoName && sshKey) {
+  if (!existsSync(sshKey)) { out({synced: false, reason: 'SSH_KEY_MISSING', key: sshKey}); process.exit(0); }
+  remote = `git@github.com:${repoName}.git`;
+  const q = (s) => '"' + String(s).replace(/\\/g, '/').replace(/"/g, '\\"') + '"';
+  gitEnv.GIT_SSH_COMMAND = `ssh -i ${q(sshKey)} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=${q(join(config.dsh_root, 'records-known-hosts'))} -o BatchMode=yes`;
+} else if (!remote && repoName && env.RECORDS_TOKEN) remote = `https://x-access-token:${env.RECORDS_TOKEN}@github.com/${repoName}.git`;
 if (!remote) { out({synced: false, reason: 'RECORDS_NOT_CONFIGURED'}); process.exit(0); }
 
 const redact = (s) => String(s).replace(/x-access-token:[^@\s]+@/g, 'x-access-token:<redacted>@').replace(/github_pat_[A-Za-z0-9_]+/g, 'github_pat_<redacted>');
 function git(params, okCodes = [0]) {
-  const r = spawnSync('git', params, {cwd: workspace, encoding: 'utf8', windowsHide: true, env: {...process.env, GIT_TERMINAL_PROMPT: '0'}});
+  const r = spawnSync('git', params, {cwd: workspace, encoding: 'utf8', windowsHide: true, env: gitEnv});
   if (r.error) throw new Error('GIT_NOT_AVAILABLE: ' + r.error.message);
   if (!okCodes.includes(r.status)) throw new Error('git ' + params[0] + ' failed: ' + redact((r.stderr || r.stdout || '').trim().slice(-400)));
   return (r.stdout || '').trim();
@@ -50,6 +60,10 @@ try { const m = readFileSync(join(workspace, 'MANIFEST.md'), 'utf8').match(/"pro
 const branch = `records/${hostname().toLowerCase().replace(/[^a-z0-9-]/g, '-')}-${profile}`;
 git(['checkout', '-q', '-B', branch]);
 git(['add', '-A']);
+// 记录目录里可能有 DSH 自己写的 .gitignore（例如 connection/.gitignore 写了 *）；记录本身必须进仓，逐项强制加入
+const forceAdd = ['connection/runs', 'connection/client-requests', 'connection/health', 'connection/RUNS.md', 'connection/INDEX.md', 'connection/HEALTH.md', 'connection/INSTALL.md', 'connection/ENV-SETUP.md', 'connection/OPENING.md', 'connection/AUDIT.md'];
+for (const rel of forceAdd) if (existsSync(join(workspace, rel))) git(['add', '-f', rel]);
+try { for (const f of readdirSync(join(workspace, 'connection', 'context'))) if (/^SCAN-\d{4}-\d{2}-\d{2}\.md$/.test(f)) git(['add', '-f', join('connection', 'context', f)]); } catch {}
 const staged = git(['diff', '--cached', '--name-only']);
 let commit = null;
 if (staged) { git(['commit', '-q', '-m', `records ${new Date().toISOString()} (${staged.split('\n').length} files)`]); commit = git(['rev-parse', '--short', 'HEAD']); }
