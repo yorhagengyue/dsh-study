@@ -42,7 +42,7 @@ export class StudyConnection {
     const probe=join(this.root,'HEALTH.md');writeRecord(probe,'存储探测',{at:Date.now()});
     const writable=readRecord(probe).at>0;
     const background=activeCatalog(this.workspace);
-    return {version:'0.3.1',cordis_plugin:true,workspace:this.workspace,storage:writable?'ready':'failed',
+    return {version:'0.3.0',cordis_plugin:true,workspace:this.workspace,storage:writable?'ready':'failed',
       connection:'authenticated',model_catalog:catalog??null,error:error??null,initialization_error:this.initializationError??null,
       model_generation:[...this.runs.values()].some(r=>r.status==='completed'&&r.output)?'verified_by_completed_run':'not_yet_verified',
       context:background?{version:background.version,sources:background.sources.filter(s=>s.enabled).length,coverage:'partial',mode:'brief_and_index'}:null,
@@ -91,7 +91,7 @@ export class StudyConnection {
       const ownedPrior=request.continue_run_id?this.get(request.continue_run_id):null;
       if(ownedPrior&&!['completed','stopped'].includes(ownedPrior.status))throw new Error('PRIOR_RUN_NOT_TERMINAL');
       if(ownedPrior && [...this.runs.values()].some(x=>x.id!==id&&x.session_id===ownedPrior.session_id&&['submitting','accepted','running'].includes(x.status)))throw new Error('SESSION_BUSY');
-      const session=ownedPrior?{sessionId:ownedPrior.session_id}:await this.controller.create({cwd:this.workspace});
+      const session=ownedPrior?{sessionId:ownedPrior.session_id}:await this.controller.create({cwd:dir});
       r.session_id=session.sessionId;
       r.selection=(await this.controller.selectModel({sessionId:r.session_id,provider:this.config.provider,model:this.config.model,reasoningEffort:effort})).selected;
       r.health_before={plugin:'native_cordis',storage:'input_written',session:'created_or_resumed',selection:r.selection,model_generation:'not_yet_verified_for_this_run'};

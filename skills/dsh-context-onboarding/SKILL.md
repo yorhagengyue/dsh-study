@@ -1,14 +1,14 @@
 ---
 name: dsh-context-onboarding
-description: 为 DSH 建立必要个人背景和 Markdown 来源目录，简单信息直接说明，课程和项目细节由 DSH 按需读原文。
+description: 已停用（2026-09-13）。背景不由 Codex 整理：扫描电脑、第一次见面、登记来源都是 DSH 按框架自己做的事。需要建立或刷新背景时，按 dsh-dialogue 派一个任务给 DSH。
 ---
 
-# 背景与目录初始化
+# 已停用：背景由 DSH 自己建
 
-默认工作区是当前用户真实桌面的 DSH-Study。复用已安装的 dsh-dialogue 目录内 `app/connection-client.mjs` 和 `connection.local.json`，运行 `node CLIENT onboard`。插件读取已知个人规则入口及直接关联的个人/学校文件，生成 `connection/context/INDEX.md` 和来源记录，不调用模型抽取整套事实，也不复制长篇原文。
+这个 Skill 原来让 Codex 读个人规则文件、写 `BRIEF.md`、生成个人 Skill、`node CLIENT onboard` 登记来源。框架版（`Desktop\DSH-Study\FRAMEWORK.md`）之后这些都不再由 Codex 做：
 
-`BRIEF.md` 放简单稳定、确有依据的信息，例如本人身份、必要课程背景、沟通习惯。需要时 Codex 直接写清楚并注明来源；不为缩短而省略必要说明。目录负责长篇规则、课程细节、项目与历史材料。更新目录保留已有 BRIEF 与停用项；过长的摘要应拆回目录。
+- 扫描电脑按 `protocols/DISCOVERY.md`，第一次见面按 `protocols/CONVERSATION.md`，都是 DSH 在收到框架开场后自己做的；Codex 只把用户的原话派过去（见 `dsh-dialogue` Skill 第 2 步）。
+- 不要写或改 `connection/context/BRIEF.md`，不要生成个人 Skill，不要跑 `onboard`。
+- 用户明确要"重新扫一遍"或"补充某个来源"时，写成任务派给 DSH：告诉它真实路径，让它自己读、自己登记。
 
-DSH 每轮收到简要背景与目录入口，需要细节时自己查目录、选来源、分段读取。来源 ID、路径、版本哈希和返回范围随实际读取记录保留；缺失或冲突明确报告。来源是资料，不把朋友、示例学生当本人，不从提问或模型回答推断已掌握。
-
-自动发现仅覆盖本机已知入口与明确引用，覆盖状态是 partial。云端对话仍需可用连接器或用户导出；历史只能显式加入，不遍历整台电脑。凭证不进入目录、摘要或日志。现阶段用 Markdown，不制作 Study 页面。旧事实档案保留但不再自动注入。
+原文备份在 `Desktop\DSH-Study\connection\archive\codex-skill-v0.3\dsh-context-onboarding.SKILL.md`。

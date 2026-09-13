@@ -14,7 +14,7 @@ if(args.includes('--serve')) {
   if(!env.DEEPSEEK_API_KEY)throw new Error('DEEPSEEK_API_KEY_REQUIRED_IN_PROJECT_ENV');
   const baseEnv=Object.fromEntries(Object.entries(process.env).filter(([k])=>! /^(?:DSH_|DEEPSEEK_|OPENAI_|ANTHROPIC_|NODE_OPTIONS|NODE_PATH)/i.test(k)));
   Object.assign(baseEnv,{DEEPSEEK_API_KEY:env.DEEPSEEK_API_KEY,DSH_HOME:config.dsh_home});
-  const child=spawn(config.node,[join(config.dsh_root,'node_modules','@deepseek-ai','dsh','lib','bin.js'),'web','--host','127.0.0.1','--port',port,'--no-open'],{cwd:config.dsh_root,env:baseEnv,windowsHide:true,stdio:['ignore','pipe','pipe']});
+  const child=spawn(config.node,[join(config.dsh_root,'node_modules','@deepseek-ai','dsh','lib','bin.js'),'web','--host','127.0.0.1','--port',port,...(config.open_browser===false?['--no-open']:[])],{cwd:config.dsh_root,env:baseEnv,windowsHide:true,stdio:['ignore','pipe','pipe']});
   write(join(dir,'process.json'),{supervisor_pid:process.pid,dsh_pid:child.pid,config:configPath,started_ms:Date.now()});
   const redact=redactor(config.dsh_root);
   function consume(stream){let pending='';stream.setEncoding('utf8');stream.on('data',chunk=>{pending+=chunk;const lines=pending.split('\n');pending=lines.pop();for(const line of lines){const m=line.match(/https?:\/\/[^\s]+\?token=([\w-]+)/);if(m){const p=join(config.dsh_root,'.env'),text=readFileSync(p,'utf8'),updated=text.replace(/^STUDY_LAUNCH_TOKEN=.*(?:\r?\n|$)/m,'');write(p,updated.trimEnd()+'\nSTUDY_LAUNCH_TOKEN='+m[1]+'\n');}appendFileSync(join(dir,'runtime.log'),redact(line)+'\n','utf8');}});}
@@ -50,5 +50,5 @@ if(args.includes('--serve')) {
   }
   if(!ready)throw new Error('APP_STARTUP_NOT_READY_CHECK_RUNTIME');
   await new Client(config).call('initialize',{});
-  console.log(JSON.stringify({ready:true,index:join(config.workspace,'connection','INDEX.md'),presentation:'markdown',window_open_requested:false}));
+  console.log(JSON.stringify({ready:true,index:join(config.workspace,'connection','INDEX.md'),presentation:'markdown',window_open_requested:config.open_browser!==false}));
 }

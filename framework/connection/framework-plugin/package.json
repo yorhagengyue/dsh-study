@@ -1,0 +1,18 @@
+{
+  "name": "@yorhagengyue/dsh-study-framework",
+  "version": "0.1.2",
+  "private": true,
+  "description": "学习系统框架的注入层：算状态、按模板渲染开场、写到 DSH 的 AGENTS.md 位置，并给 Codex 留接口。",
+  "type": "module",
+  "main": "index.mjs",
+  "exports": {".": "./index.mjs", "./cordis.patch.yml": "./cordis.patch.yml"},
+  "files": ["*.mjs", "cordis.patch.yml", "templates/*.md", "README.md"],
+  "dsh": {"bundle": {"patch": "./cordis.patch.yml"}},
+  "engines": {"node": ">=22.16"},
+  "scripts": {"test": "node --test tests/framework.test.mjs"},
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.2",
+    "@deepseek-ai/schemastery": "^3.18.2",
+    "@deepseek-ai/dsh-tools": "^0.1.5-rc.2"
+  }
+}
