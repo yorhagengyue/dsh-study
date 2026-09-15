@@ -5,8 +5,8 @@ import {readText, sectionsOf, slotFilled, parseTables} from './state.mjs';
 export const VARIABLE_KEYS = {userName: '用户称呼', machine: '机器', workspace: '工作区', role: '当前角色'};
 
 const STAGE_TEXT = {
-  first_run: '这是第一次。按宪法开头：只做全扫（若已实现）和第一次见面（`protocols/CONVERSATION.md` 第 3 节），不接任务。本轮是谈话轮。',
-  filling: '不是第一次，但还没填完。从空着的必填槽接着谈，已经明确的不重问；接任务时把空着的槽在结果里标"未知"，不猜。',
+  first_run: '这是第一次。按宪法开头三件事：① 读最新全扫（位置见上）；② **把三个必填槽从 SCAN 的候选来源填上**（规则文件里写明的直接写，推出来的进抽屉，读过还没有的才标"未知"）；③ 摆坐标。用户带任务来就在同一轮接着做，整轮只问一个问题。做完把 MANIFEST 的 first_meeting_done 改 true、user_version 加一，否则下一轮还是第一次。你不扫电脑。',
+  filling: '不是第一次，但还没填完。空着的必填槽先查 SCAN 候选来源和已有记录能不能填，能填就填（带出处）；不能填的从空着的槽接着谈，已经明确的不重问；接任务时真没有的槽在结果里标"未知"，不猜。',
   complete: '框架完整。按本轮 `INPUT.md` 正常走；涉及过期或冲突的记录先问再用。',
 };
 
@@ -47,6 +47,7 @@ export function renderStateText(state) {
   const lines = [
     `- \`stage\` = **${state.stage}**（profile ${state.profile_id ?? '未建'}；user_version ${state.user_version}；本框架下的轮次 ${state.runs}，其中谈话 ${state.talk_runs}）`,
     `- 必填槽位：已填 ${state.required_slots.filled} / ${state.required_slots.total}${state.required_slots.empty.length ? '，空着：' + state.required_slots.empty.join('、') : ''}`,
+    `- 全扫：${state.scan ? `做过，最新 ${state.scan.at ?? '时间不明'}（${state.scan.age_days ?? '?'} 天前），${state.scan.files ?? '?'} 个文件，禁区 ${state.scan.forbidden ?? '?'} 处，候选来源 ${state.scan.candidate_sources} 条；文件 \`${state.scan.file}\`，填槽先读它的"候选来源"一节` : '**没做过**。扫描是入口的活（scan.mjs），你不扫；把"入口还没扫"写进回复，用已有记录继续'}`,
     `- 第一次见面：${state.first_meeting_done ? '已完成' : '未完成'}；机器信息：${state.machine_filled ? '已填' : '未填'}；健康检查：${state.health_checked ? '有结果' : '没做过'}`,
     `- 抽屉 open ${state.drawer_open} 条；stale ${state.stale} 条；conflicted ${state.conflicted} 条${state.last_talk_at ? '；上次谈话 ' + state.last_talk_at : ''}`,
     '',
@@ -89,9 +90,10 @@ export function renderProjectText(workspace) {
   return parts.join('\n\n');
 }
 
-export function renderIndexText(workspace) {
+export function renderIndexText(workspace, scan = null) {
   const w = workspace;
   return [
+    `- 最新全扫：${scan ? join(w, scan.file) : '（还没有；入口跑 scan.mjs 后出现在 connection/context/）'}`,
     `- 宪法：${join(w, 'FRAMEWORK.md')}`,
     `- 协议：${join(w, 'protocols')}（CONTRACT、DISCOVERY、CONVERSATION、HEALTH、ROUND、ACCEPTANCE）`,
     `- 实例清单：${join(w, 'MANIFEST.md')}`,
@@ -118,7 +120,7 @@ export function renderOpening({workspace, variables, template, state, maxBytes =
     user: renderUserText(workspace),
     machine: renderMachineText(workspace),
     project: renderProjectText(workspace),
-    index: renderIndexText(workspace),
+    index: renderIndexText(workspace, state.scan),
   };
   const omitted = [];
   const build = () => {

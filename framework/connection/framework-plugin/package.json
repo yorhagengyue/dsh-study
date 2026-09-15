@@ -1,6 +1,6 @@
 {
   "name": "@yorhagengyue/dsh-study-framework",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "private": true,
   "description": "学习系统框架的注入层：算状态、按模板渲染开场、写到 DSH 的 AGENTS.md 位置，并给 Codex 留接口。",
   "type": "module",

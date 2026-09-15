@@ -120,6 +120,26 @@ function listRuns(workspace, sinceMs) {
  * 算框架状态。返回 {stage, ...} 与要回写 MANIFEST 的 manifest 对象。
  * stage 判定见 MANIFEST.md 的表：first_run / filling / complete。
  */
+/** 最新一份全扫（入口脚本写的 connection/context/SCAN-<日期>.md）的摘要；没有返回 null。 */
+export function scanState(workspace, now = new Date()) {
+  const dir = join(workspace, 'connection', 'context');
+  if (!existsSync(dir)) return null;
+  const files = readdirSync(dir).filter(f => /^SCAN-\d{4}-\d{2}-\d{2}\.md$/.test(f)).sort();
+  if (!files.length) return null;
+  const file = files[files.length - 1];
+  const text = readText(join(dir, file));
+  const pick = (re) => { const m = text.match(re); return m ? m[1] : null; };
+  const at = pick(/生成，(\d{4}-\d{2}-\d{2} \d{2}:\d{2})/);
+  const counts = pick(/^\| 目录 \/ 文件 \/ 字节 \| (.+?) \|/m);
+  const fileCount = counts ? Number((counts.split('/')[1] || '').trim()) : null;
+  const forbidden = pick(/^\| 禁区 \| (\d+) 处/m);
+  const uncovered = pick(/^\| 未覆盖 \| (\d+) 处/m);
+  const candidates = (text.match(/^\| (用户维护的规则文件|内容区里的规则文件|本地课件目录|AI 工具的记忆|AI 工具的技能|笔记库|日历|AI 对话导出包) \|/gm) || []).length;
+  let ageDays = null;
+  if (at) { const t = Date.parse(at.replace(' ', 'T') + ':00'); if (!Number.isNaN(t)) ageDays = Math.max(0, Math.floor((now.getTime() - t) / 86400000)); }
+  return {file: 'connection/context/' + file, at, age_days: ageDays, files: Number.isFinite(fileCount) ? fileCount : null, forbidden: forbidden ? Number(forbidden) : null, uncovered: uncovered ? Number(uncovered) : null, candidate_sources: candidates};
+}
+
 export function computeState({workspace, requiredSlots = DEFAULT_REQUIRED_SLOTS, now = new Date()}) {
   const manifestPath = join(workspace, 'MANIFEST.md');
   const manifest = readState(manifestPath) ?? {};
@@ -143,6 +163,7 @@ export function computeState({workspace, requiredSlots = DEFAULT_REQUIRED_SLOTS,
   const machineFilled = !!machine && machine.status && machine.status !== 'empty';
   const healthChecked = !!manifest.health?.checked_at;
   const profileId = manifest.profile_id;
+  const scan = scanState(workspace, now);
   const userVersion = Number(manifest.user_version ?? 0);
 
   // first_run 只能由"第一次见面做过"退出：MANIFEST 标记、完成的谈话轮、或任一必填槽已填。
@@ -166,6 +187,7 @@ export function computeState({workspace, requiredSlots = DEFAULT_REQUIRED_SLOTS,
     stale: (facts.match(/"status"\s*:\s*"stale"/g) ?? []).length,
     conflicted: (facts.match(/"conflicted"\s*:\s*true/g) ?? []).length,
     machine_filled: machineFilled,
+    scan,
     health_checked: healthChecked,
     computed_at: now.toISOString(),
   };
@@ -186,6 +208,7 @@ export function writeManifest({workspace, state, manifest, manifestPath, machine
   next.drawer_open = state.drawer_open;
   next.stale = state.stale;
   next.conflicted = state.conflicted;
+  next.scan = state.scan;
   if (machineId && !next.machine_id) next.machine_id = machineId;
   if (workspaceLabel && !next.workspace) next.workspace = workspaceLabel;
   const prevCmp = JSON.stringify({...manifest, updated_at: null});

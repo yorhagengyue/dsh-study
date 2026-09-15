@@ -54,3 +54,4 @@ node C:\Users\Administrator\dsh\node_modules\@deepseek-ai\dsh\lib\bin.js plugin 
 - `first_run` 只能由"第一次见面做过"退出：`MANIFEST.md` 的 `first_meeting_done`、或 INPUT 含 `mode: talk` 且 STATUS 为 completed 的轮、或任一必填槽已填。任务轮不算（0.1.2 起；之前任何一轮都算，Codex 派的一个任务就把档位推成了 filling）。旧的 v0.3 记录（早于 `created_at`）不计。
 - 开浏览器是系统行为（入口 Agent 在用户发话时调用），不是 DSH 自己的决定；没有给 DSH 留对应的原生工具。
 - 测试：`node --test tests/`（会从桌面工作区复制框架文件到临时目录，不动原文件）。
+- 0.1.4 起 `MANIFEST.md` 多一个 `scan` 字段（最新一份 `connection/context/SCAN-<日期>.md` 的时间、文件数、禁区数、候选来源条数），开场的"状态"里写"全扫：做过/没做过"，"文件位置"里给出路径；DSH 不再需要自己找有没有扫过。

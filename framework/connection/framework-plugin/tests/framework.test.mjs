@@ -4,7 +4,8 @@ import {mkdtempSync, cpSync, writeFileSync, readFileSync, mkdirSync, existsSync}
 import {join, dirname} from 'node:path';
 import {tmpdir, homedir} from 'node:os';
 import {fileURLToPath} from 'node:url';
-import {computeState, writeManifest, readState, replaceState, slotFilled, sectionsOf, parseTables} from '../state.mjs';
+import {computeState, writeManifest, readState, replaceState, slotFilled, sectionsOf, parseTables, scanState} from '../state.mjs';
+import {renderStateText} from '../render.mjs';
 import {renderOpening} from '../render.mjs';
 import {FrameworkEngine} from '../engine.mjs';
 import {openCommand, isLoopbackUrl, redactToken} from '../open.mjs';
@@ -24,6 +25,12 @@ function freshWorkspace() {
   mkdirSync(join(ws, 'connection', 'runs'), {recursive: true});
   mkdirSync(join(ws, 'connection', 'templates'), {recursive: true});
   cpSync(join(here, '..', 'templates', 'opening.md'), join(ws, 'connection', 'templates', 'opening.md'));
+  // 桌面实例的槽位可能已经填过；测试从装机态开始：有空模板存档就用它覆盖槽位与生长层文件。
+  const pristine = join(SOURCE, 'connection', 'archive', 'templates-pristine');
+  if (existsSync(pristine)) for (const f of ['USER/identity.md', 'USER/learning.md', 'USER/style.md', 'USER/sources.md', 'USER/facts.md', 'MACHINE.md', 'PROJECT.md', 'DRAWER.md', 'MEMORY.md', 'connection/AUDIT.md']) {
+    const src = join(pristine, f);
+    if (existsSync(src)) { mkdirSync(dirname(join(ws, f)), {recursive: true}); cpSync(src, join(ws, f)); }
+  }
   // 桌面上的 MANIFEST 可能已被插件填过；测试从装机态开始。
   const mp = join(ws, 'MANIFEST.md');
   const st = readState(mp) ?? {};
@@ -157,4 +164,26 @@ test('open helpers: platform command, loopback-only, token redaction', () => {
   assert.equal(isLoopbackUrl('http://example.com/'), false);
   assert.equal(isLoopbackUrl('http://127.0.0.1:3090/?token=a b'), false);
   assert.equal(redactToken('http://127.0.0.1:3090/?token=secret&x=1'), 'http://127.0.0.1:3090/?token=<redacted>&x=1');
+});
+
+test('scan state is read from the latest SCAN summary and rendered into the opening', () => {
+  const ws = freshWorkspace();
+  const ctx = join(ws, 'connection', 'context');
+  mkdirSync(ctx, {recursive: true});
+  let s = computeState({workspace: ws});
+  assert.equal(s.state.scan, null);
+  assert.ok(renderStateText(s.state).includes('全扫：**没做过**'));
+  writeFileSync(join(ctx, 'SCAN-2026-09-14.md'), '# 全扫 · 2026-09-14\n\n由入口 Agent 的脚本 `scan.mjs` 生成，2026-09-14 00:35（本机 X）。\n\n| 项 | 值 |\n|---|---|\n| 目录 / 文件 / 字节 | 100 / 1000 / 1 MB |\n| 未覆盖 | 3 处 |\n| 禁区 | 4 处（只登记，未读） |\n', 'utf8');
+  writeFileSync(join(ctx, 'SCAN-2026-09-15.md'), '# 全扫 · 2026-09-15\n\n由入口 Agent 的脚本 `scan.mjs` 生成，2026-09-15 02:18（本机 X）。\n\n| 项 | 值 |\n|---|---|\n| 目录 / 文件 / 字节 | 3272 / 16692 / 555.1 MB |\n| 未覆盖 | 1758 处 |\n| 禁区 | 86 处（只登记，未读）；标记 .dsh-private 的目录 1 个 |\n\n| 类别 | 路径 | basis | 备注 |\n|---|---|---|---|\n| 用户维护的规则文件 | `C:\\x\\AGENTS.md` | `user_rule_file` |  |\n| 本地课件目录 | `C:\\x\\IS210` | `inferred_from_behavior` |  |\n', 'utf8');
+  s = computeState({workspace: ws, now: new Date('2026-09-16T02:18:00')});
+  assert.equal(s.state.scan.file, 'connection/context/SCAN-2026-09-15.md');
+  assert.equal(s.state.scan.files, 16692);
+  assert.equal(s.state.scan.forbidden, 86);
+  assert.equal(s.state.scan.candidate_sources, 2);
+  assert.equal(s.state.scan.age_days, 1);
+  const txt = renderStateText(s.state);
+  assert.ok(txt.includes('全扫：做过，最新 2026-09-15 02:18'));
+  assert.ok(txt.includes('SCAN-2026-09-15.md'));
+  const w = writeManifest({workspace: ws, state: s.state, manifest: s.manifest, manifestPath: s.manifestPath});
+  assert.equal(readState(s.manifestPath).scan.files, 16692);
 });

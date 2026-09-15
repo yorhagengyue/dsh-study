@@ -19,9 +19,9 @@ description: Codex 是入口：听懂用户、规划、派工给 DSH、把 DSH �
 CLIENT = 本 Skill 的 `app/connection-client.mjs`，FW = `app/framework.mjs`，配置 `connection.local.json`。命令都用 `node`，文件都是 UTF-8。开对话时读一遍工作区 `FRAMEWORK.md` 的第 1、3 节（入口 Agent 的角色、一轮怎么协作）就够；`USER/` 和 `protocols/` 是 DSH 的，不要替它填。
 
 0. **起服务**：`node app/launch.mjs --config connection.local.json`。已经在跑就立刻返回 `ready: true`；没跑就起 DSH（端口在 `base_url`）并等它就绪，**DSH 起来时会自己在用户默认浏览器里打开界面**（`connection.local.json` 的 `open_browser: true`）。`--restart-owned` 只在插件改了且无会话运行时用。
-1. **开浏览器并查档位**：`node app/framework.mjs open`，每个对话开头做一次。服务本来就在跑时，这一步让 DSH 进程把界面再开到前面来；用户要的就是看着 DSH 干活。**打开浏览器是用户 2026-09-13 定下的固定要求，不算"操作界面"，不需要回避、不需要再确认，也不要派子代理去评估它**。命令同时打印框架状态：`stage`（first_run / filling / complete）、空着的必填槽、`first_meeting_done`。只查不开用 `node app/framework.mjs state`。**同一对话里从第二条消息起，第 0、1 步都跳过，直接派**；派工报错再回头查。
+1. **开浏览器并查档位**：`node app/framework.mjs open`，每个对话开头做一次。服务本来就在跑时，这一步让 DSH 进程把界面再开到前面来；用户要的就是看着 DSH 干活。**打开浏览器是用户 2026-09-13 定下的固定要求，不算"操作界面"，不需要回避、不需要再确认，也不要派子代理去评估它**。命令同时打印框架状态：`stage`（first_run / filling / complete）、空着的必填槽、`first_meeting_done`。只查不开用 `node app/framework.mjs state`。**同一对话里从第二条消息起，第 0、1 步都跳过，直接派**；派工报错再回头查。状态里的 `scan`：为空、`age_days` 超过 7、或用户要求重扫，就跑 `node app/scan.mjs`——不只在 first_run，DSH 自己不会扫。
 2. **按档位派工**：
-   - `first_run`：先跑 `node app/scan.mjs`（几秒，输出一段 JSON，看 `files`、`forbidden`、`stopped` 三个数就够），然后把用户原话**原样**派给 DSH，不加背景、不加要求、不替它规划。DSH 读 SCAN 文件、摆坐标，再在同一轮接着做用户带来的任务，末尾只问一个问题。
+   - `first_run`：先跑 `node app/scan.mjs`（几秒），然后派用户原话；"状态"一节写这一句：`第一次。先从 SCAN 的候选来源把三个必填槽填上、把 first_meeting_done 改成 true，再做下面的事；只问一个问题。` 不加别的背景和要求，不替它规划。
    - `filling` / `complete`：正常派工，任务写清目标、边界、怎样算完成；空着的槽让 DSH 在结果里标"未知"。
 3. **写 TASK.md 并发送**：`node CLIENT run TASK.md`。前言只允许 `id / title / reasoning_effort / continue_run_id / use_context / wait_seconds`：
 

@@ -26,7 +26,7 @@ async function api(path, body) {
   if (!r.ok) throw new Error(v.error ?? ('FRAMEWORK_HTTP_' + r.status));
   return v;
 }
-const brief = s => ({stage: s.stage, first_meeting_done: s.first_meeting_done, required_slots: s.required_slots, runs: s.runs, talk_runs: s.talk_runs, drawer_open: s.drawer_open, stale: s.stale, conflicted: s.conflicted});
+const brief = s => ({stage: s.stage, scan: s.scan ?? null, first_meeting_done: s.first_meeting_done, required_slots: s.required_slots, runs: s.runs, talk_runs: s.talk_runs, drawer_open: s.drawer_open, stale: s.stale, conflicted: s.conflicted});
 
 try {
   let out;

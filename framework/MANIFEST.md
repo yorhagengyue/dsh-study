@@ -6,7 +6,7 @@
 
 | stage | 判定 | Agent 该做什么 |
 |---|---|---|
-| `first_run` | `profile_id` 为空；或 `first_meeting_done` 为 false 且没有完成的 `mode = talk` 轮且必填槽一个没填（任务轮不算） | 读入口跑好的 SCAN 文件，摆坐标；带任务来的同一轮接着做，空槽标"未知"，只问一个问题 |
+| `first_run` | `profile_id` 为空；或 `first_meeting_done` 为 false 且没有完成的 `mode = talk` 轮且必填槽一个没填（任务轮不算） | 读入口跑好的 SCAN，从候选来源填必填槽，摆坐标；带任务来的同一轮接着做，只问一个问题；做完把 `first_meeting_done` 改 true |
 | `filling` | 不是第一次，但 `required_slots.filled < required_slots.total`，或 `first_meeting_done` 为 false | 从空着的槽接着谈；接任务时空着的标"未知" |
 | `complete` | 必填槽位全满，`first_meeting_done` 为 true，`MACHINE.md` 已填，`health.checked_at` 不为空 | 正常走本轮 |
 
@@ -14,6 +14,6 @@
 
 <!-- dsh-state -->
 ```json
-{"stage":"first_run","profile_id":null,"framework_version":"0.2","user_version":0,"machine_id":null,"workspace":null,"first_meeting_done":false,"required_slots":{"filled":0,"total":3,"empty":["identity.称呼","identity.语言","learning.学校与学期"]},"runs":0,"last_talk_at":null,"drawer_open":0,"stale":0,"conflicted":0,"coverage":"none","health":{"service":"not_verified","context":"unavailable","framework":"empty","conversation":null,"checked_at":null},"created_at":null,"updated_at":null}
+{"stage":"first_run","profile_id":null,"framework_version":"0.2","user_version":0,"machine_id":null,"workspace":null,"first_meeting_done":false,"required_slots":{"filled":0,"total":3,"empty":["identity.称呼","identity.语言","learning.学校与学期"]},"runs":0,"last_talk_at":null,"drawer_open":0,"stale":0,"conflicted":0,"coverage":"none","scan":null,"health":{"service":"not_verified","context":"unavailable","framework":"empty","conversation":null,"checked_at":null},"created_at":null,"updated_at":null}
 ```
 <!-- /dsh-state -->
