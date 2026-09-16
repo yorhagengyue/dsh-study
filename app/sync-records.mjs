@@ -44,7 +44,7 @@ function git(params, okCodes = [0]) {
 }
 
 // 记录仓里永远不放的东西
-const IGNORE = ['.env', '.env.*', '*.tgz', 'node_modules/', 'profiles/', 'runs/', 'active-profile.json', 'connection/install-backups/', 'connection/app/', 'connection/framework-plugin/', 'connection/archive/', 'connection/context/SCAN-*-清单.md', 'connection/context/_scan-raw.txt', 'connection/context/versions/', '*.lnk', '*.cmd', '*.command'];
+const IGNORE = ['.env', '.env.*', '*.tgz', 'node_modules/', 'profiles/', 'runs/', 'active-profile.json', 'connection/install-backups/', 'connection/app/', 'connection/framework-plugin/', 'connection/archive/', 'connection/context/SCAN-*-清单.md', 'connection/context/_scan-raw.txt', 'connection/context/versions/', 'UNDERSTANDING/', 'USER/understanding.md', '*.lnk', '*.cmd', '*.command']; // UNDERSTANDING/ 与 USER/understanding.md：第二步的语料与理解，永不回传（protocols/UNDERSTANDING.md 第 6 节）
 mkdirSync(workspace, {recursive: true});
 const gi = join(workspace, '.gitignore');
 const have = existsSync(gi) ? readFileSync(gi, 'utf8').split(/\r?\n/) : [];

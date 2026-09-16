@@ -66,6 +66,10 @@ export function renderUserText(workspace) {
   parts.push(...learnSec);
   parts.push(...nonEmptyTables(learning));
   parts.push(...nonEmptyTables(style));
+  // 第二步：用户点头过的理解与开口时机（USER/understanding.md）。没填时 filledSections / nonEmptyTables 都为空，不占预算。
+  const understanding = readText(join(workspace, 'USER', 'understanding.md'));
+  parts.push(...filledSections(understanding, {skipTables: true}));
+  parts.push(...nonEmptyTables(understanding));
   return parts.length ? parts.join('\n\n') : '（还没有已填的槽位。）';
 }
 

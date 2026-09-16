@@ -11,6 +11,7 @@
 | `FRAMEWORK.md` | 写死 | 满 | 产品 | 宪法：开工先查状态；我们是谁、整件事、怎么协作、怎么认识用户、什么有价值、权限、禁区、健康 |
 | `protocols/CONTRACT.md` | 写死 | 满 | 产品 | 记录格式、字段、状态、审计与版本 |
 | `protocols/DISCOVERY.md` | 写死 | 满 | 产品 | 全扫：范围、排除、禁区、预算、输出、抽取 |
+| `protocols/UNDERSTANDING.md` | 写死 | 满 | 产品 | 第二步·理解人：原则（积极拆解、层级不是速度、先校尺子）、语料、读的九节、合的八节、问、记、引导、更新 |
 | `protocols/CONVERSATION.md` | 写死 | 满 | 产品 | 谈话式认识用户：第一次见面、每轮动作、抽屉、撤回、结束 |
 | `protocols/HEALTH.md` | 写死 | 满 | 产品 | 服务、背景、框架、谈话四类健康 |
 | `protocols/ROUND.md` | 写死 | 满 | 产品 | 每轮：输入格式、开场组装、输出与验收记录、计时字段 |
@@ -21,6 +22,9 @@
 | `USER/style.md` | 槽位 | 空 | 谈话、扫描 | 沟通与工作习惯、硬规则，每条带适用范围 |
 | `USER/sources.md` | 槽位 | 空 | 扫描、谈话 | 资料在哪、怎么访问（不含凭证）、状态 |
 | `USER/facts.md` | 槽位 | 空 | Agent | 账本：所有记录的真源 |
+| `USER/understanding.md` | 槽位 | 空 | 主 agent、用户 | 这个人：尺子、用户点头过的理解、开口时机表、待确认、撤回；永不回传 |
+| `UNDERSTANDING/raw/` | 生长 | 空 | 主 agent 的程序与子代理 | 第二步的原话时间线、分段、读者笔记、理解稿各版；永不回传、不进仓库 |
+| `~/.codex/skills/dsh-understand/`（不在包内） | 实现 | 有 | Claude | 第二步 skill：`app/history.mjs` 抽原话，SKILL.md 六步操作（抽、读、合、问、记、引导） |
 | `MACHINE.md` | 槽位 | 空 | 发现器 | 这台机器：系统、路径、工具、服务、最近健康 |
 | `MANIFEST.md` | 实例 | `stage = first_run` | 安装器、Agent | Agent 每次开工先读：第一次吗、填过了吗、完整吗；框架与用户版本、覆盖、健康摘要 |
 | `PROJECT.md` | 写死加生长 | 只有产品阶段 | 产品、用户 | 工程阶段；这个用户的进度与已确认的决定 |

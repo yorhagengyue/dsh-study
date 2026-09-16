@@ -103,6 +103,9 @@ cpSync(join(root,'skills','dsh-dialogue'),skill,{recursive:true});
 const contextSkill=join(dirname(skill),'dsh-context-onboarding');
 if(existsSync(contextSkill))cpSync(contextSkill,join(backup,'dsh-context-onboarding'),{recursive:true});
 cpSync(join(root,'skills','dsh-context-onboarding'),contextSkill,{recursive:true});
+const understandSkill=join(dirname(skill),'dsh-understand');
+if(existsSync(understandSkill))cpSync(understandSkill,join(backup,'dsh-understand'),{recursive:true});
+cpSync(join(root,'skills','dsh-understand'),understandSkill,{recursive:true}); // 第二步：理解人（protocols/UNDERSTANDING.md）
 write(join(skill,'connection.local.json'),config);
 // Installed client is self-contained, sharing the same portable source as the App.
 cpSync(join(root,'app'),join(skill,'app'),{recursive:true});cpSync(join(root,'connection-plugin'),join(skill,'connection-plugin'),{recursive:true});
