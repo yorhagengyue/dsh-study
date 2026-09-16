@@ -24,6 +24,7 @@
 | `USER/facts.md` | 槽位 | 空 | Agent | 账本：所有记录的真源 |
 | `USER/understanding.md` | 槽位 | 空 | 主 agent、用户 | 这个人：尺子、用户点头过的理解、开口时机表、待确认、撤回；永不回传 |
 | `UNDERSTANDING/raw/` | 生长 | 空 | 主 agent 的程序与子代理 | 第二步的原话时间线、分段、读者笔记、理解稿各版；永不回传、不进仓库 |
+| `~/.codex/skills/dsh-scan/` 与 `~/.claude/skills/dsh-scan/`（不在包内，两份相同） | 实现 | 有 | Claude | 全扫 skill：`app/run.mjs` 跑扫描、出摘要、生成 `connection/entry/SCAN-<日期>-反思.md` 骨架、`check` 判断反思写完没有；SKILL.md 四步（跑、读、反思、反馈）+ 回传 |
 | `~/.codex/skills/dsh-understand/` 与 `~/.claude/skills/dsh-understand/`（不在包内，两份相同） | 实现 | 有 | Claude | 第二步 skill：`app/history.mjs` 抽原话，SKILL.md 六步操作（抽、读、合、问、记、引导） |
 | `MACHINE.md` | 槽位 | 空 | 发现器 | 这台机器：系统、路径、工具、服务、最近健康 |
 | `MANIFEST.md` | 实例 | `stage = first_run` | 安装器、Agent | Agent 每次开工先读：第一次吗、填过了吗、完整吗；框架与用户版本、覆盖、健康摘要 |
@@ -31,6 +32,7 @@
 | `DRAWER.md` | 生长 | 空 | Agent、用户 | 抽屉：建议、推测、候选事实、先放着的想法 |
 | `MEMORY.md` | 生长 | 空 | Agent | 按时间记什么变了、为什么，以及经验与工程笔记 |
 | `connection/AUDIT.md` | 生长 | 空 | Agent | 每一次写入的记录，方便撤 |
+| `connection/entry/` | 生长 | 空 | 入口 | 入口每轮的收尾（做了什么、哪里不对、对用户多懂了什么、下一步）和每次全扫的反思；`ROUND.md` 第 7 节、`DISCOVERY.md` 第 8 节；回传 |
 | `connection/framework-plugin/` | 实现 | 有 | Claude | 注入层插件：算 stage、渲染开场、写到 `$DSH_HOME/AGENTS.md`、留接口与工具 |
 | `connection/templates/opening.md` | 写死（可调） | 有 | 产品 | 开场模板，改了即重渲染 |
 | `connection/archive/codex-skill-v0.3/` | 存档 | 有 | Codex | 09-13 晚被 v0.4 替换前的两个 Codex Skill 原文 |

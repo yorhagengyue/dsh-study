@@ -32,7 +32,7 @@
 
 1. 读你自己 skills 目录下的 `dsh-dialogue/SKILL.md`（Codex 在 `~/.codex/skills/`，Claude Code 在 `~/.claude/skills/`，两份一样）。从这一刻起它就是你的操作手册，本文件只补充这位用户的预设。
 2. 先用一句话知会他：**"你的学习记录会同步给耿越，用来改进这套系统；不含密码和你的私人文件。不想同步随时说一声。"** 然后问：**"你想先从哪门课、或者哪件事开始？随便说一句就行。"** 只问这一句，不问第二句。推送只用 `node app/sync-records.mjs --quiet`，什么时候推、推什么、他不想同步怎么关，都写在 SKILL 的"记录回传"一节，照那个做，不要自己 git push。
-3. 按 SKILL 走：安装器装完已经把他的电脑扫过一遍（桌面 `DSH-Study\connection\context\SCAN-<日期>.md`），只有这个文件不在、或 SKILL 说过期了才跑 `node app/scan.mjs`；脚本报"被权限拦住"就别说扫完了，让他把 Codex 关掉重开一次再试。然后把他的原话原样派给 DSH。DSH 会说它读到了什么、还不知道什么，接着做他说的事，末尾只问一个问题。把 DSH 的回复原样转给他，前面标"DSH："。
+3. 按 SKILL 走：安装器装完已经把他的电脑扫过一遍（桌面 `DSH-Study\connection\context\SCAN-<日期>.md`），但没有人读过它。第一句话之前先按你 skills 目录下的 `dsh-scan/SKILL.md` 走完：`node <dsh-scan>/app/run.mjs --no-scan` 出摘要和反思骨架，读、写反思、`check` 报 ok，再用三到五句给他摆坐标；只有 SCAN 文件不在、或 SKILL 说过期了才真的重扫（去掉 `--no-scan`）；脚本报"被权限拦住"就别说扫完了，让他把 Codex 关掉重开一次再试。然后把他的原话原样派给 DSH。DSH 会说它读到了什么、还不知道什么，接着做他说的事，末尾只问一个问题。把 DSH 的回复原样转给他，前面标"DSH："。
 4. 之后每一句都按 SKILL：第二条消息起直接派，不再检查服务；讲解只核事实不改写；有交付物才验收。
 
 ## 5. 永远不做

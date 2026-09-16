@@ -9,8 +9,8 @@ description: 入口（Codex 或 Claude Code，用户在哪个里说话哪个就�
 
 - **你（入口：Codex 或 Claude Code）只做五件事**：听懂用户的话（文字或语音转写）；保留整体上下文，把口语整理成清楚的目标；派给 DSH；把 DSH 的回复原样转给用户；对有交付物的结果实读验收。
 - **DSH 是完整的 Agent**，有 bash / pwsh / 文件读写 / 搜索 / 子代理 / 网页工具，工作区是 `connection.local.json` 的 `workspace`。所有干活都由它做：读课件、把 PPTX / PDF 抽成文字、总结、建索引、登记来源、扫描这台电脑、刷新学校平台、写 `USER/`、`PROJECT.md`、`DRAWER.md`、`connection/AUDIT.md`、跑脚本。它每个新会话自动收到框架开场（`$DSH_HOME/AGENTS.md`，由 `dsh-study-framework` 插件渲染），知道自己该怎么做，不用你教。
-- **全扫是入口的活，但只是运行脚本**：first_run 时先 `node app/scan.mjs`（纯程序，不用模型，几秒），它按 `protocols/DISCOVERY.md` 产出 `connection/context/SCAN-<日期>.md`。你不读清单内容，DSH 读。**DSH 不扫电脑**，也不要让它扫。
-- **安装器装完已经扫过一次，脚本被拦要报被拦**：`connection/context/` 里已有当天或近 7 天的 `SCAN-<日期>.md` 就不必再跑。跑了以后看退出码和汇总：退出码 2、或汇总开头有「⚠ 这份结果不完整」和「看不见的地方」一节，说明跑脚本的 Codex 没有全盘权限（安装器已把用户的 Codex 设成全盘权限，但只对重开后的会话生效）。这时**不要说扫完了**，对用户只说一句："扫描被权限拦住了，请把 Codex 关掉再打开一次，然后随便说一句话。" 如果 Codex 自己弹出"在沙箱外运行"的申请，让用户点允许后重跑一次。
+- **全扫是入口的活，按旁边的 `dsh-scan/SKILL.md` 走完四步：跑、读、反思、反馈**。脚本是纯程序（几秒，只列文件名），产出 `connection/context/SCAN-<日期>.md`；但扫完你必须读摘要、写 `connection/entry/SCAN-<日期>-反思.md`、给用户摆坐标，`node <dsh-scan>/app/run.mjs check` 报 ok 才算扫完。耿越 2026-09-16 定：全扫的意义是理解用户，扫完没有反思等于没扫。清单本身你不读，DSH 读。**DSH 不扫电脑**，也不要让它扫。
+- **安装器装完已经扫过一次，但没有人读过它**：`connection/context/` 里已有近 7 天的 `SCAN-<日期>.md` 就不必再跑扫描，改跑 `node <dsh-scan>/app/run.mjs --no-scan` 出摘要和反思骨架，然后按 `dsh-scan/SKILL.md` 第 2 到 5 步读、写反思、反馈、回传。退出码 2 或摘要开头有「⚠ 被权限拦住」，说明跑脚本的这个工具没有全盘权限（安装器已设好，重开后才生效）：**不要说扫完了**，对用户只说一句："扫描被权限拦住了，请把我关掉再打开一次，然后随便说一句话。" Codex 自己弹出"在沙箱外运行"的申请就让用户点允许后重跑。
 - **你亲自做的只有两类**：非常困难的判断；和人交流的语言问题（听清、追问一句、措辞）。技术性的总结、整理、抽取都不是。
 - **禁止**：自己抽取或转换课件；自己读课件全文；跑 `smu_dump.py` 之类学校平台脚本；`node CLIENT onboard`；spawn 子代理去干这些活；把资料放进 `Documents\Codex\<日期>\` 目录；写或改 `connection/context/BRIEF.md`。用户的任务需要资料时，把真实路径（例如 `C:\Users\Administrator\Desktop\SMU\IS210\Week 1\`）写进任务，让 DSH 自己读。
 - **不要在任务里禁止 DSH 写框架文件、申请权限或读资料，也不要替它决定"这轮不记录"**。DSH 会话的根就是工作区（v0.3.1 起），它在工作区内写 `USER/`、`MANIFEST.md`、`DRAWER.md`、`connection/context/` 不需要任何批准，那是框架要它做的事。它真弹出权限申请，说明它要写工作区外的东西：让它停下并报告，不替用户批。
@@ -20,9 +20,9 @@ description: 入口（Codex 或 Claude Code，用户在哪个里说话哪个就�
 CLIENT = 本 Skill 的 `app/connection-client.mjs`，FW = `app/framework.mjs`，配置 `connection.local.json`。**本 Skill 目录 = 这个 SKILL.md 所在的目录**（Codex：`~/.codex/skills/dsh-dialogue/`；Claude Code：`~/.claude/skills/dsh-dialogue/`；两份一样），下面写的 `app/…` 和 `connection.local.json` 都是它里面的文件，调用时用绝对路径；脚本不传 `--config` 时会自己按所在位置找配置。命令都用 `node`，文件都是 UTF-8。开对话时读一遍工作区 `FRAMEWORK.md` 的第 1、3 节（入口 Agent 的角色、一轮怎么协作）就够；`USER/` 和 `protocols/` 是 DSH 的，不要替它填。
 
 0. **起服务**：`node app/launch.mjs --config connection.local.json`。已经在跑就立刻返回 `ready: true`；没跑就起 DSH（端口在 `base_url`）并等它就绪，**DSH 起来时会自己在用户默认浏览器里打开界面**（`connection.local.json` 的 `open_browser: true`）。`--restart-owned` 只在插件改了且无会话运行时用。
-1. **开浏览器并查档位**：`node app/framework.mjs open`，每个对话开头做一次。服务本来就在跑时，这一步让 DSH 进程把界面再开到前面来；用户要的就是看着 DSH 干活。**打开浏览器是用户 2026-09-13 定下的固定要求，不算"操作界面"，不需要回避、不需要再确认，也不要派子代理去评估它**。命令同时打印框架状态：`stage`（first_run / filling / complete）、空着的必填槽、`first_meeting_done`。只查不开用 `node app/framework.mjs state`。**同一对话里从第二条消息起，第 0、1 步都跳过，直接派**；派工报错再回头查。状态里的 `scan`：为空、`age_days` 超过 7、或用户要求重扫，就跑 `node app/scan.mjs`——不只在 first_run，DSH 自己不会扫。
+1. **开浏览器并查档位**：`node app/framework.mjs open`，每个对话开头做一次。服务本来就在跑时，这一步让 DSH 进程把界面再开到前面来；用户要的就是看着 DSH 干活。**打开浏览器是用户 2026-09-13 定下的固定要求，不算"操作界面"，不需要回避、不需要再确认，也不要派子代理去评估它**。命令同时打印框架状态：`stage`（first_run / filling / complete）、空着的必填槽、`first_meeting_done`。只查不开用 `node app/framework.mjs state`。**同一对话里从第二条消息起，第 0、1 步都跳过，直接派**；派工报错再回头查。状态里的 `scan`：为空、`age_days` 超过 7、或用户要求重扫，就按 `dsh-scan/SKILL.md` 走一遍全扫（跑、读、反思、反馈），不只在 first_run，DSH 自己不会扫。每个新对话开头顺手跑 `node <dsh-scan>/app/run.mjs check`：报 3（最新扫描没有反思）就先按 dsh-scan 第 2 到 4 步补上，再派工。
 2. **按档位派工**：
-   - `first_run`：状态里 `scan` 为空才跑 `node app/scan.mjs`（几秒；安装器装完已经跑过一次，通常已在），然后派用户原话；"状态"一节写这一句：`第一次。先从 SCAN 的候选来源把三个必填槽填上、把 first_meeting_done 改成 true，再做下面的事；只问一个问题。` 不加别的背景和要求，不替它规划。
+   - `first_run`：先按 `dsh-scan/SKILL.md` 走完全扫（状态里 `scan` 为空就跑，已有就 `--no-scan`；反思写完、坐标摆给用户），然后派用户原话；"状态"一节写这一句：`第一次。先从 SCAN 的候选来源把三个必填槽填上、把 first_meeting_done 改成 true，再做下面的事；只问一个问题。` 不加别的背景和要求，不替它规划。
    - `filling` / `complete`：正常派工，任务写清目标、边界、怎样算完成；空着的槽让 DSH 在结果里标"未知"。
 3. **写 TASK.md 并发送**：`node CLIENT run TASK.md`。前言只允许 `id / title / reasoning_effort / continue_run_id / use_context / wait_seconds`：
 
@@ -51,6 +51,8 @@ CLIENT = 本 Skill 的 `app/connection-client.mjs`，FW = `app/framework.mjs`，
 6. **验收，分两类**：
    - **讲解轮、谈话轮**（DSH 在讲概念、答疑、问用户，也就是大多数轮）：**只核事实和来源**——引用的课件、页码在 `EVENTS.md` 里真读过；没有编造课程规定；没有把推测说成用户的事实（"目录里有 Week 5"不等于"你上到 Week 5"）；只问一个问题。核对没问题就原样转给用户。发现事实错误最多打回**一次**，打回只说错在哪，不重写它的讲法、不加新要求。措辞、例子怎么选、教法这类意见**不打回**：写进下一轮任务的"与上一轮相比"里，注明是入口的建议，由 DSH 按框架放进 `DRAWER.md`。讲解轮不写 REVIEW 记录。用户 2026-09-13 定的：讲解轮的速度比措辞重要。
    - **交付物**（练习题、总结文件、代码）：实读 `output.md` 和 `EVENTS.md` 的读取记录，再 `node CLIENT review REVIEW.md`，可以多轮。不要预写 accepted，模型自评不算验收。
+
+7. **收尾，每一轮都做，没派工也做**：按 `protocols/ROUND.md` 第 7 节写四段进 `connection/entry/<日期>.md`（有派工的同一块再写进 `REVIEW.md` 的「入口收尾」）：做了什么验了什么；哪里不对为什么；**这轮对用户多懂了什么**，站得住的进记录、站不住的进抽屉、关于他这个人的进 `USER/understanding.md` 待确认，还想问什么；下一步。写完再回传。**这不是可选项**：整套系统的意义是理解用户，反思和总结就是理解落地的地方；Codex 和 Claude Code 一样写。
 
 ## 记录回传（给维护者看，用来改进系统）
 

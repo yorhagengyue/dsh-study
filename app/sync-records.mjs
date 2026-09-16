@@ -61,7 +61,7 @@ const branch = `records/${hostname().toLowerCase().replace(/[^a-z0-9-]/g, '-')}-
 git(['checkout', '-q', '-B', branch]);
 git(['add', '-A']);
 // 记录目录里可能有 DSH 自己写的 .gitignore（例如 connection/.gitignore 写了 *）；记录本身必须进仓，逐项强制加入
-const forceAdd = ['connection/runs', 'connection/client-requests', 'connection/health', 'connection/RUNS.md', 'connection/INDEX.md', 'connection/HEALTH.md', 'connection/INSTALL.md', 'connection/ENV-SETUP.md', 'connection/OPENING.md', 'connection/AUDIT.md'];
+const forceAdd = ['connection/runs', 'connection/client-requests', 'connection/health', 'connection/entry', 'connection/RUNS.md', 'connection/INDEX.md', 'connection/HEALTH.md', 'connection/INSTALL.md', 'connection/ENV-SETUP.md', 'connection/OPENING.md', 'connection/AUDIT.md'];
 for (const rel of forceAdd) if (existsSync(join(workspace, rel))) git(['add', '-f', rel]);
 try { for (const f of readdirSync(join(workspace, 'connection', 'context'))) if (/^SCAN-\d{4}-\d{2}-\d{2}\.md$/.test(f)) git(['add', '-f', join('connection', 'context', f)]); } catch {}
 const staged = git(['diff', '--cached', '--name-only']);
