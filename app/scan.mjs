@@ -2,7 +2,7 @@
 // 安装器装完会先跑一次（安装器跑在用户自己的权限下，不在 Codex 沙箱里）；之后由入口在 SCAN 缺失或过期时再跑。
 // 用法：node app/scan.mjs [--config connection.local.json] [--max-files 20000] [--max-bytes 2147483648] [--max-seconds 600]
 // 输出：<workspace>/connection/context/SCAN-<日期>.md（汇总）与 SCAN-<日期>-清单.md（完整清单）；回写 MANIFEST.md 的 coverage。
-// 退出码：0 正常；2 = 根被权限挡住（列不了家目录根、读不了笔记库登记表、根目录进不去）。这时结果不完整：
+// 退出码：0 正常；2 = 根被权限挡住（列不了家目录根、读不了笔记库登记表、根目录进不去或列不出来；macOS 没批桌面/文稿/下载的隐私权限也算）。这时结果不完整：
 //   汇总里有「看不见的地方」一节，覆盖状态 blocked，stderr 有一句人话。入口见到就报"被拦住"，不得报"扫完了"（DISCOVERY 第 0 节）。
 import {readFileSync, writeFileSync, existsSync, readdirSync, statSync, lstatSync, mkdirSync, renameSync} from 'node:fs';
 import {join, resolve, basename, extname, dirname, sep} from 'node:path';
@@ -101,7 +101,7 @@ const ruleFiles = [];
 const uncovered = [];   // 预算外或读不了
 let files = 0, bytes = 0, dirs = 0, stopped = null;
 const topOf = (p, root) => { const rel = p.slice(root.length + 1); const i = rel.indexOf(sep); return join(root, i < 0 ? rel : rel.slice(0, i)); };
-function walk(dir, root, depth) {
+function walk(dir, root, depth, label = '') {
   if (stopped) return;
   if (Date.now() - started > MAX_MS) { stopped = '时间预算用完'; uncovered.push(dir); return; }
   if (files >= MAX_FILES) { stopped = '文件数预算用完'; uncovered.push(dir); return; }
@@ -109,7 +109,7 @@ function walk(dir, root, depth) {
   if (depth > 6) { uncovered.push(dir + '（超过 6 层）'); return; }
   if (existsSync(join(dir, '.dsh-private'))) { privateDirs++; return; } // 放了标记的目录：不进、不列、不记路径，只计数
   let ents; try { ents = readdirSync(dir, {withFileTypes: true}); }
-  catch (e) { const c = errCode(e); if (c === 'EPERM' || c === 'EACCES') deniedDirs++; uncovered.push(dir + `（读不了：${c}）`); return; }
+  catch (e) { const c = errCode(e); if (c === 'EPERM' || c === 'EACCES') deniedDirs++; if (depth === 1) blocked.push({path: dir, what: `进根目录（${label}）`, error: c}); uncovered.push(dir + `（读不了：${c}）`); return; } // 根本身列不出来（macOS 没给桌面/文稿/下载权限时 stat 能过、readdir 是 EPERM）也算被拦
   dirs++;
   for (const e of ents) {
     if (stopped) return;
@@ -148,7 +148,7 @@ function walk(dir, root, depth) {
     rows.push({path: p, type: ext || '(无后缀)', size: st.size, mtime: st.mtime, use, owner, handle});
   }
 }
-for (const r of roots) walk(r.path, r.path, 1);
+for (const r of roots) walk(r.path, r.path, 1, r.label);
 const elapsedMs = Date.now() - started;
 
 // ---- 与上次比较（DISCOVERY 7） ----
