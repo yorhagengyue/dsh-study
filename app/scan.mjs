@@ -7,6 +7,7 @@
 import {readFileSync, writeFileSync, existsSync, readdirSync, statSync, lstatSync, mkdirSync, renameSync} from 'node:fs';
 import {join, resolve, basename, extname, dirname, sep} from 'node:path';
 import {homedir, hostname, platform, release} from 'node:os';
+import {createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 
 const args = process.argv.slice(2);
@@ -43,7 +44,7 @@ const THIRD_PARTY = /(whatsapp|wechat|微信|telegram|tencent files|classlist|�
 const COURSE_DIR = /(^[A-Z]{2,4}\s?\d{3}[A-Z]?$)|课件|课程|lecture|week\s?\d|semester|term\s?\d|^(smu|nus|ntu|usyd|unsw|canvas|elearn)$/i;
 const RULE_FILE = /^(CLAUDE\.md|AGENTS\.md|\.cursorrules|GEMINI\.md|copilot-instructions\.md)$/i;
 // 09-16 第二版规则。规则一变就改这个标记：清单头部记下它，比较两次清单时才分得清"规则变了"和"用户动了"（09-16 消失 660 里 631 条其实是不再列工作区）。
-const SCAN_RULES_VERSION = '2026-09-16b';
+const SCAN_RULES_VERSION = '2026-09-17a';
 const CODE_EXT = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.py', '.rs', '.go', '.java', '.kt', '.swift', '.c', '.cc', '.cpp', '.h', '.hpp', '.cs', '.rb', '.php', '.sql', '.css', '.scss', '.less', '.html', '.vue', '.svelte', '.sh', '.ps1']);
 const CONFIG_EXT = new Set(['', '.txt', '.json', '.yaml', '.yml', '.toml', '.ini', '.cfg', '.conf', '.env', '.secret', '.key']);
 const STRONG_SECRET_WORD = /(^|[^a-z])(credentials?|cookies?|secrets?|passwords?|passwd|私钥|密码)([^a-z]|$)/i;
@@ -51,6 +52,7 @@ const TOKEN_WORD = /(^|[^a-z])tokens?([^a-z]|$)/i;
 // 禁区判定（DISCOVERY 5）。09-16 实测 54 处"文件名像凭证"里大半是 tokens.ts、approval_tokens.rs、带 token 字样的纪要：源码文件名里的 token / secret 是代码，不是凭证。
 const isForbiddenFile = (name) => {
   const ext = extname(name).toLowerCase();
+  if (/\.(example|sample|template|dist)$/i.test(name)) return false; // .env.example 之类是给人抄的模板，不含真凭证（冷测 09-17：禁区 44 处里 18 处是它）
   if (/^(\.env(\..*)?|.*\.(pem|key|kdbx|p12|pfx|ppk)|id_rsa.*|id_ed25519.*|\.netrc|\.npmrc|\.pypirc|.*[-_]key)$/i.test(name)) return true;
   if (CODE_EXT.has(ext)) return false;
   if (STRONG_SECRET_WORD.test(name)) return true;
@@ -118,6 +120,9 @@ const dirStats = new Map(); // 顶层目录统计
 const forbidden = [];   // 禁区
 const exportPacks = [];
 const courseDirs = [];
+const courseInWork = []; // 名字像课件但在代码目录或 AI 工作区里：单列，不和纯误报一起丢
+const vaultLike = [];   // 没登记在 obsidian.json、但目录里有 .obsidian 的库（冷测 09-17：YoRHa's Brain）
+let uncoveredListOnly = 0; // 聊天软件、私密子树里超过层数的目录：只计数，不进未覆盖清单
 const calendars = [];
 const ruleFiles = [];
 const uncovered = [];   // 预算外或读不了
@@ -128,7 +133,7 @@ function walk(dir, root, depth, label = '', flags = {third: false, priv: false})
   if (Date.now() - started > MAX_MS) { stopped = '时间预算用完'; uncovered.push(dir); return; }
   if (files >= MAX_FILES) { stopped = '文件数预算用完'; uncovered.push(dir); return; }
   if (bytes >= MAX_BYTES) { stopped = '字节预算用完'; uncovered.push(dir); return; }
-  if (depth > 6) { uncovered.push(dir + '（超过 6 层）'); return; }
+  if (depth > 6) { if (flags.third || flags.priv) uncoveredListOnly++; else uncovered.push(dir + '（超过 6 层）'); return; }
   if (existsSync(join(dir, '.dsh-private'))) { privateDirs++; return; } // 放了标记的目录：不进、不列、不记路径，只计数
   let ents; try { ents = readdirSync(dir, {withFileTypes: true}); }
   catch (e) { const c = errCode(e); if (c === 'EPERM' || c === 'EACCES') deniedDirs++; if (depth === 1) blocked.push({path: dir, what: `进根目录（${label}）`, error: c}); uncovered.push(dir + `（读不了：${c}）`); return; } // 根本身列不出来（macOS 没给桌面/文稿/下载权限时 stat 能过、readdir 是 EPERM）也算被拦
@@ -140,9 +145,10 @@ function walk(dir, root, depth, label = '', flags = {third: false, priv: false})
     if (st.isSymbolicLink()) { rows.push({path: p, type: 'link', size: 0, mtime: st.mtime, use: '链接', owner: '不确定', handle: '只列，不跟随'}); continue; }
     if (e.isDirectory()) {
       if (EXCLUDE_DIR.test(e.name) || isVirtualEnv(p)) continue;
-      if (FORBIDDEN_DIR.test(e.name)) { forbidden.push({path: p, kind: '凭证或浏览器数据目录，未进'}); continue; }
+      if (FORBIDDEN_DIR.test(e.name) && !(/^profiles$/i.test(e.name) && !/(firefox|mozilla|thunderbird|chrome|chromium|edge|brave|opera|browser)/i.test(basename(dir)))) { forbidden.push({path: p, kind: '凭证或浏览器数据目录，未进'}); continue; } // profiles 只在浏览器数据目录下才算（DSH、Codex 运行时也有叫 profiles 的目录）
       if (rootSet.has(p.toLowerCase())) continue; // 另一个根（仓库、笔记库），单独走，不在这里重复列
-      if (COURSE_DIR.test(e.name) && !underCodeParent(p, root)) courseDirs.push(p);
+      if (COURSE_DIR.test(e.name)) (underCodeParent(p, root) ? courseInWork : courseDirs).push(p);
+      if (!vaults.some(v => v.toLowerCase() === p.toLowerCase()) && existsSync(join(p, '.obsidian'))) vaultLike.push(p);
       if (p.toLowerCase() === workspace.toLowerCase()) continue; // 框架自己不算用户内容
       walk(p, root, depth + 1, '', {third: flags.third || THIRD_PARTY.test(e.name), priv: flags.priv || PRIVATE_NAME.test(e.name)});
       continue;
@@ -172,6 +178,14 @@ function walk(dir, root, depth, label = '', flags = {third: false, priv: false})
 }
 for (const r of roots) walk(r.path, r.path, 1, r.label, {third: THIRD_PARTY.test(basename(r.path)), priv: PRIVATE_NAME.test(basename(r.path))});
 const elapsedMs = Date.now() - started;
+
+// ---- 规则文件：自动测试、一次性运行目录里复制出来的同一份不算他写的（冷测 09-17：94 条里 68 条是 agent-test-lab 复制的同一个 AGENTS.md）；内容相同的合并成一条 ----
+const RUN_DIR = /^(runs?|probe-.*|cases|workspace|work|outputs|fixtures?|__snapshots__|\d{4}-\d{2}-\d{2})$/i;
+const ruleFilesUser = [], ruleFilesCopies = [];
+for (const p of ruleFiles) (p.split(sep).slice(0, -1).some(c => RUN_DIR.test(c)) ? ruleFilesCopies : ruleFilesUser).push(p);
+const ruleGroups = new Map(); // 内容 hash → [路径]
+for (const p of ruleFilesUser) { let key; try { key = createHash('sha1').update(readFileSync(p)).digest('hex'); } catch { key = 'unreadable:' + p; } const a = ruleGroups.get(key) || []; a.push(p); ruleGroups.set(key, a); }
+const ruleFilesUnique = [...ruleGroups.values()].map(a => ({path: a[0], dup: a.length - 1}));
 
 // ---- 课件目录：名字像还不够，里面（3 层内）得真有课件类文件；父目录已算的，Week 1… 子目录不再单列（09-16：13 处里 5 处是代码里叫 canvas 的目录和镜像） ----
 const courseCandidates = [...new Set(courseDirs)];
@@ -230,12 +244,15 @@ if (blocked.length) {
 }
 summary.push('## 候选来源（DSH 第一次见面从这里按需读原文）', '', '| 类别 | 路径 | basis | 备注 |', '|---|---|---|---|');
 for (const k of known) summary.push(`| ${k.category} | \`${cell(k.path)}\` | \`${k.basis}\` | ${cell(k.note)} |`);
-for (const p of ruleFiles.slice(0, 200)) summary.push(`| 内容区里的规则文件 | \`${cell(p)}\` | \`user_rule_file\` | AI 记忆日志段落按 assistant_summary |`);
-{ const n = capNote(ruleFiles.length, 200, '内容区里的规则文件'); if (n) summary.push(n); }
+for (const r of ruleFilesUnique.slice(0, 200)) summary.push(`| 内容区里的规则文件 | \`${cell(r.path)}\` | \`user_rule_file\` | AI 记忆日志段落按 assistant_summary${r.dup ? `；另有 ${r.dup} 份内容相同的副本` : ''} |`);
+{ const n = capNote(ruleFilesUnique.length, 200, '内容区里的规则文件'); if (n) summary.push(n); }
+if (ruleFilesCopies.length) summary.push(`| （一次性运行目录、AI 工作区里的规则文件 ${ruleFilesCopies.length} 份，是工具复制的，不算他写的；例如 \`${cell(ruleFilesCopies[0])}\`） | | | |`);
+for (const p of vaultLike.slice(0, 10)) summary.push(`| 笔记库（未登记） | \`${cell(p)}\` | \`user_rule_file\` | 目录里有 .obsidian，但没登记在 obsidian.json；可能是旧副本或另一套库 |`);
 const uniqueCourseDirs = courseKept;
 for (const p of uniqueCourseDirs.slice(0, 100)) summary.push(`| 本地课件目录 | \`${cell(p)}\` | \`inferred_from_behavior\` | 课件类文件 ${courseFileCount.get(p)} 个，子目录一并算；课程名、周次、清单；谈话里确认后升级 |`);
 { const n = capNote(uniqueCourseDirs.length, 100, '本地课件目录'); if (n) summary.push(n); }
-if (courseDropped.length) summary.push(`| （名字像课件但里面没有课件类文件、或在代码和 AI 工作区里，不算：${courseDropped.length} 处，例如 ${courseDropped.slice(0, 3).map(p => '`' + cell(p) + '`').join('、')}） | | | |`);
+if (courseDropped.length) summary.push(`| （名字像课件但里面没有课件类文件、或已并入父目录，不算：${courseDropped.length} 处，例如 ${courseDropped.slice(0, 3).map(p => '`' + cell(p) + '`').join('、')}） | | | |`);
+if (courseInWork.length) summary.push(`| （疑似学习材料，但在代码目录或 AI 工作区里，不当课件来源：${[...new Set(courseInWork)].length} 处，例如 ${[...new Set(courseInWork)].slice(0, 3).map(p => '`' + cell(p) + '`').join('、')}） | | | |`);
 for (const p of calendarsDedup.slice(0, 20)) summary.push(`| 日历 | \`${cell(p)}\` | \`inferred_from_behavior\` | 课表、截止；谈话里确认 |`);
 for (const p of [...new Set(exportPacks)].slice(0, 20)) summary.push(`| AI 对话导出包 | \`${cell(p)}\` | 私密 | 只列；用户允许后才抽用户自己发的消息 |`);
 summary.push('', '## 按目录', '', '| 目录 | 文件 | 大小 | 最近修改 | 主要类型 |', '|---|---|---|---|---|');
@@ -247,7 +264,7 @@ if (!forbidden.length) summary.push('| （无） | |');
 // 未覆盖：同一个祖父目录下 3 处以上折成一行（09-16：1339 处几乎全是游戏存档备份超过 6 层）
 const collapseUncovered = (list) => { const by = new Map(); for (const u of list) { const base = u.replace(/（[^）]*）$/, ''); const key = dirname(dirname(base)); const a = by.get(key) || []; a.push(u); by.set(key, a); } const out = []; for (const [k, arr] of by) { if (arr.length >= 3) out.push(`\`${cell(k)}\` 下 ${arr.length} 处${(arr[0].match(/（[^）]*）$/) || [''])[0]}`); else out.push(...arr.map(u => `\`${cell(u)}\``)); } return out; };
 const uncoveredLines = collapseUncovered(uncovered);
-summary.push('', '## 未覆盖', '', uncovered.length ? `${uncovered.length} 处，折成 ${uncoveredLines.length} 行。\n\n` + uncoveredLines.slice(0, 100).map(l => `- ${l}`).join('\n') + (uncoveredLines.length > 100 ? `\n- （共 ${uncoveredLines.length} 行，这里只列前 100 行）` : '') : '（无）', '');
+summary.push('', '## 未覆盖', '', uncovered.length ? `${uncovered.length} 处，折成 ${uncoveredLines.length} 行${uncoveredListOnly ? `；聊天软件、私密子树里另有 ${uncoveredListOnly} 处超过层数，只计数` : ''}。\n\n` + uncoveredLines.slice(0, 100).map(l => `- ${l}`).join('\n') + (uncoveredLines.length > 100 ? `\n- （共 ${uncoveredLines.length} 行，这里只列前 100 行）` : '') : '（无）', '');
 if (changes) summary.push('## 变化（对比 ' + changes.prev + '）', '', `新增 ${changes.added.length}，修改 ${changes.modified.length}，消失 ${changes.gone.length}。只看内容类文件；聊天软件、私密、禁区这些只列的路径另有变化 ${changes.listOnlyChanged} 处，不列。` + (changes.prevRules !== SCAN_RULES_VERSION ? `上次清单的规则版本是 ${changes.prevRules}，这次是 ${SCAN_RULES_VERSION}：按现在的规则不在范围内的 ${changes.outOfScope} 条旧路径不算消失，那是规则变了，不是用户删了。` : (changes.outOfScope ? `另有 ${changes.outOfScope} 条旧路径按现在的规则不在范围内，不算消失。` : '')), '', ...changes.added.slice(0, 30).map(p => `- 新增 \`${cell(p)}\``), ...changes.modified.slice(0, 30).map(p => `- 修改 \`${cell(p)}\``), ...changes.gone.slice(0, 30).map(p => `- 消失 \`${cell(p)}\``), '');
 summary.push('## 候选事实', '', '（由 DSH 在第一次见面读候选来源后按 `protocols/DISCOVERY.md` 第 6 节填：候选事实、来源、basis、去向。脚本不做这一步。）', '');
 const listing = ['# 全扫清单 · ' + dateTag, '', `${rows.length} 条。列：路径、类型、大小、修改时间、用途猜测、归属猜测、处理。`, '', `规则版本 ${SCAN_RULES_VERSION}。`, '', '| 路径 | 类型 | 大小 | 修改时间 | 用途 | 归属 | 处理 |', '|---|---|---|---|---|---|---|'];
@@ -270,7 +287,7 @@ try {
 process.stdout.write(JSON.stringify({
   scan: outSummary, listing: outList, roots: roots.length, dirs, files, bytes, elapsed_ms: elapsedMs, stopped, uncovered: uncovered.length,
   blocked: blocked.length, blocked_at: blocked.map(b => `${b.path}（${b.what}：${b.error}）`), denied_dirs: deniedDirs,
-  forbidden: forbidden.length, private_dirs: privateDirs, known_entries: known.length, rule_files: ruleFiles.length, course_dirs: uniqueCourseDirs.length, course_dirs_dropped: courseDropped.length,
+  forbidden: forbidden.length, private_dirs: privateDirs, known_entries: known.length, rule_files: ruleFilesUnique.length, rule_files_copies: ruleFilesCopies.length, rule_files_raw: ruleFiles.length, vault_like: vaultLike.length, uncovered_list_only: uncoveredListOnly, course_dirs: uniqueCourseDirs.length, course_dirs_dropped: courseDropped.length, course_dirs_in_work: [...new Set(courseInWork)].length,
   calendars: calendarsDedup.length, rules_version: SCAN_RULES_VERSION, export_packs: [...new Set(exportPacks)].length, coverage, manifest_updated: manifestUpdated,
   changes: changes ? {prev: changes.prev, prev_rules: changes.prevRules, added: changes.added.length, modified: changes.modified.length, gone: changes.gone.length, out_of_scope: changes.outOfScope, list_only_changed: changes.listOnlyChanged} : null,
 }, null, 2) + '\n');

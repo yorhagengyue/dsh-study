@@ -86,7 +86,7 @@ function digest(scanFile) {
     `- 未覆盖 ${sum['未覆盖'] || '?'}；看不见：${sum['看不见'] || '?'}；禁区 ${sum['禁区'] || '?'}；私密/第三方只列：${sum['私密只列'] || '?'}；覆盖状态 ${sum['覆盖状态'] || '?'}`, '');
   if (invisible.length) { out.push('## 看不见的地方', ''); for (const r of invisible) out.push(`- ${r[0]}：${r[1]}，${r[2]}`); out.push(''); }
   out.push('## 候选来源（按类别；这是理解他的入口，不是清单）', '');
-  const showPaths = {'用户维护的规则文件': 6, 'AI 工具的记忆': 8, '笔记库': 4, '内容区里的规则文件': 12, '本地课件目录': 15, '日历': 5};
+  const showPaths = {'用户维护的规则文件': 6, 'AI 工具的记忆': 8, '笔记库': 4, '笔记库（未登记）': 4, '内容区里的规则文件': 12, '本地课件目录': 15, '日历': 5};
   for (const [cat, rows] of byCat) {
     const n = showPaths[cat] ?? 0;
     if (!n) { out.push(`- ${cat} ${rows.length}（只计数）`); continue; }
