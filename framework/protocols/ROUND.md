@@ -39,7 +39,7 @@ framework_version: 0.2
 
 ## 2. 开场怎么组装
 
-**组装之前先查状态**（`FRAMEWORK.md` 开头）：`first_run` 只发用户原话，不组装任务开场，入口先跑 `scan.mjs` 写好 `SCAN-<日期>.md`，DSH 读它、摆坐标，再在同一轮接着做用户带来的任务；`filling` 的开场在第 2 项后面加一段"已知什么、还空着什么"，空着的槽在任务里标"未知"；`complete` 按下面正常组装。
+**组装之前先查状态**（`FRAMEWORK.md` 开头）：`first_run` 只发用户原话，不组装任务开场，主 agent（入口）先跑 `scan.mjs` 写好 `SCAN-<日期>.md`，DSH 读它、摆坐标，再在同一轮接着做用户带来的任务；`filling` 的开场在第 2 项后面加一段"已知什么、还空着什么"，空着的槽在任务里标"未知"；`complete` 按下面正常组装。
 
 **实现**：开场由注入插件 `connection/framework-plugin` 按 `connection/templates/opening.md` 渲染到 `$DSH_HOME/AGENTS.md`，DSH 原生的 agent-instructions 在每个新会话第一步注入。派工方不必再手工拼开场，`INPUT.md` 里只放本轮内容；"本轮注入"表记开场文件的版本与字节。
 
