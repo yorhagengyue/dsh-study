@@ -37,7 +37,7 @@ export function loadRequest(path) {
 }
 export async function main(args) {
   const callerStarted=Date.now();
-  let configPath=join(homedir(),'.codex','skills','dsh-dialogue','connection.local.json');
+  let configPath=join(dirname(fileURLToPath(import.meta.url)),'..','connection.local.json'); // 按脚本自己所在的 skill 目录找配置（~/.codex/skills 与 ~/.claude/skills 各一份）
   if(args[0]==='--config'){configPath=resolve(args[1]);args=args.slice(2);}
   const config=JSON.parse(readFileSync(configPath,'utf8')),client=new Client(config),redact=redactor(config.dsh_root);
   const command=args[0]??'health';let result;

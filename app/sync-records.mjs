@@ -4,7 +4,7 @@
 // 或 RECORDS_REPO + RECORDS_TOKEN=github_pat_…（HTTPS）；或 RECORDS_REMOTE=完整 URL。
 // 没配就什么都不做。永远不提交 .env、完整扫描清单、旧 profile 目录和代码目录。
 import {existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync} from 'node:fs';
-import {join, resolve} from 'node:path';
+import {join, resolve, dirname} from 'node:path';
 import {homedir, hostname} from 'node:os';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
@@ -12,7 +12,7 @@ import {fileURLToPath} from 'node:url';
 const args = process.argv.slice(2);
 const opt = (n) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : undefined; };
 const quiet = args.includes('--quiet');
-const configPath = resolve(opt('--config') ?? join(homedir(), '.codex', 'skills', 'dsh-dialogue', 'connection.local.json'));
+const configPath = resolve(opt('--config') ?? join(dirname(fileURLToPath(import.meta.url)), '..', 'connection.local.json')); // 按脚本自己所在的 skill 目录找配置
 const config = JSON.parse(readFileSync(configPath, 'utf8'));
 const workspace = resolve(config.workspace);
 const out = (o) => { if (!quiet) process.stdout.write(JSON.stringify(o) + '\n'); };

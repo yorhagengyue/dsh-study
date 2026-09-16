@@ -5,7 +5,7 @@ description: 学习系统第二步：读用户在这台电脑上和所有 AI 的
 
 # dsh-understand · 理解人
 
-协议在工作区 `protocols/UNDERSTANDING.md`（原则、语料、读的九节、合的八节、问、记、引导、更新）。本文件只写怎么操作。工作区路径在 `~/.codex/skills/dsh-dialogue/connection.local.json` 的 `workspace`。
+协议在工作区 `protocols/UNDERSTANDING.md`（原则、语料、读的九节、合的八节、问、记、引导、更新）。本文件只写怎么操作。工作区路径在旁边 `dsh-dialogue/connection.local.json` 的 `workspace`。**本 skill 目录 = 这个 SKILL.md 所在的目录**（Codex：`~/.codex/skills/`；Claude Code：`~/.claude/skills/`；两份一样），命令用绝对路径。
 
 **先读协议第 1 节的八条原则，尤其第 2 到第 4 条。** 第一稿最容易犯的错不是漏，是尺子：坐在 AI 的座位上拿任务吞吐量量人。
 
@@ -20,7 +20,7 @@ description: 学习系统第二步：读用户在这台电脑上和所有 AI 的
 ### 1. 抽（程序，几秒）
 
 ```
-node ~/.codex/skills/dsh-understand/app/history.mjs
+node <本 skill 目录>/app/history.mjs
 ```
 
 默认读 `connection.local.json`，产物写到 `<workspace>/UNDERSTANDING/raw/`：`SOURCES.md`（哪些来源存在、读了多少、哪些看不见）、`timeline.jsonl`、`chunks/NN-<起>_to_<止>.md`、`stats.json`。参数：`--since YYYY-MM-DD` 增量；`--include <目录>` 用户点名的目录（例如日记）；`--out <目录>` 换产物位置。

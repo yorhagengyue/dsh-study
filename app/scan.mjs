@@ -7,10 +7,11 @@
 import {readFileSync, writeFileSync, existsSync, readdirSync, statSync, lstatSync, mkdirSync, renameSync} from 'node:fs';
 import {join, resolve, basename, extname, dirname, sep} from 'node:path';
 import {homedir, hostname, platform, release} from 'node:os';
+import {fileURLToPath} from 'node:url';
 
 const args = process.argv.slice(2);
 const opt = (name, def) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : def; };
-const configPath = resolve(opt('--config', join(homedir(), '.codex', 'skills', 'dsh-dialogue', 'connection.local.json')));
+const configPath = resolve(opt('--config', join(dirname(fileURLToPath(import.meta.url)), '..', 'connection.local.json'))); // 按脚本自己所在的 skill 目录找配置
 const config = JSON.parse(readFileSync(configPath, 'utf8'));
 const workspace = resolve(config.workspace);
 const MAX_FILES = Number(opt('--max-files', 100000)); // 09-16 Mac 实测 22 个仓库的桌面 20,000 不够（0.7 秒就撞顶）；100,000 约 4 秒

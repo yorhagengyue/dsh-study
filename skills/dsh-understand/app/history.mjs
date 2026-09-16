@@ -7,12 +7,13 @@
 import {readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync, statSync} from 'node:fs';
 import {join, resolve, basename, dirname} from 'node:path';
 import {homedir, platform} from 'node:os';
+import {fileURLToPath} from 'node:url';
 
 const args = process.argv.slice(2);
 const opt = (name, def) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : def; };
 const multi = (name) => args.flatMap((a, i) => a === name && args[i + 1] ? [args[i + 1]] : []);
 const HOME = homedir();
-const configPath = resolve(opt('--config', join(HOME, '.codex', 'skills', 'dsh-dialogue', 'connection.local.json')));
+const configPath = resolve(opt('--config', join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'dsh-dialogue', 'connection.local.json'))); // 旁边的 dsh-dialogue skill 里的配置（Codex 与 Claude Code 各一份）
 let workspace = null;
 try { workspace = resolve(JSON.parse(readFileSync(configPath, 'utf8')).workspace); } catch {}
 const OUT = resolve(opt('--out', workspace ? join(workspace, 'UNDERSTANDING', 'raw') : join(HOME, 'UNDERSTANDING-raw')));

@@ -1,13 +1,13 @@
 ---
 name: dsh-dialogue
-description: Codex 是入口：听懂用户、规划、派工给 DSH、把 DSH 的回复原样转给用户、验收。一切执行（读资料、抽取、整理、总结、扫描、登记、写记录）都由 DSH 做。每条用户消息：起服务 → 开浏览器 → 查框架档位 → 派工 → 转述 → 验收。
+description: 入口（Codex 或 Claude Code，用户在哪个里说话哪个就是）：听懂用户、规划、派工给 DSH、把 DSH 的回复原样转给用户、验收。一切执行（读资料、抽取、整理、总结、扫描、登记、写记录）都由 DSH 做。每条用户消息：起服务 → 开浏览器 → 查框架档位 → 派工 → 转述 → 验收。
 ---
 
-# Codex ↔ DSH 连接（v0.4 · 框架版，2026-09-13）
+# 入口 ↔ DSH 连接（v0.4 · 框架版，2026-09-13；入口可以是 Codex 或 Claude Code）
 
 ## 分工，硬规则
 
-- **你（Codex）只做五件事**：听懂用户的话（文字或语音转写）；保留整体上下文，把口语整理成清楚的目标；派给 DSH；把 DSH 的回复原样转给用户；对有交付物的结果实读验收。
+- **你（入口：Codex 或 Claude Code）只做五件事**：听懂用户的话（文字或语音转写）；保留整体上下文，把口语整理成清楚的目标；派给 DSH；把 DSH 的回复原样转给用户；对有交付物的结果实读验收。
 - **DSH 是完整的 Agent**，有 bash / pwsh / 文件读写 / 搜索 / 子代理 / 网页工具，工作区是 `connection.local.json` 的 `workspace`。所有干活都由它做：读课件、把 PPTX / PDF 抽成文字、总结、建索引、登记来源、扫描这台电脑、刷新学校平台、写 `USER/`、`PROJECT.md`、`DRAWER.md`、`connection/AUDIT.md`、跑脚本。它每个新会话自动收到框架开场（`$DSH_HOME/AGENTS.md`，由 `dsh-study-framework` 插件渲染），知道自己该怎么做，不用你教。
 - **全扫是入口的活，但只是运行脚本**：first_run 时先 `node app/scan.mjs`（纯程序，不用模型，几秒），它按 `protocols/DISCOVERY.md` 产出 `connection/context/SCAN-<日期>.md`。你不读清单内容，DSH 读。**DSH 不扫电脑**，也不要让它扫。
 - **安装器装完已经扫过一次，脚本被拦要报被拦**：`connection/context/` 里已有当天或近 7 天的 `SCAN-<日期>.md` 就不必再跑。跑了以后看退出码和汇总：退出码 2、或汇总开头有「⚠ 这份结果不完整」和「看不见的地方」一节，说明跑脚本的 Codex 没有全盘权限（安装器已把用户的 Codex 设成全盘权限，但只对重开后的会话生效）。这时**不要说扫完了**，对用户只说一句："扫描被权限拦住了，请把 Codex 关掉再打开一次，然后随便说一句话。" 如果 Codex 自己弹出"在沙箱外运行"的申请，让用户点允许后重跑一次。
@@ -17,7 +17,7 @@ description: Codex 是入口：听懂用户、规划、派工给 DSH、把 DSH �
 
 ## 每条用户消息怎么走
 
-CLIENT = 本 Skill 的 `app/connection-client.mjs`，FW = `app/framework.mjs`，配置 `connection.local.json`。命令都用 `node`，文件都是 UTF-8。开对话时读一遍工作区 `FRAMEWORK.md` 的第 1、3 节（入口 Agent 的角色、一轮怎么协作）就够；`USER/` 和 `protocols/` 是 DSH 的，不要替它填。
+CLIENT = 本 Skill 的 `app/connection-client.mjs`，FW = `app/framework.mjs`，配置 `connection.local.json`。**本 Skill 目录 = 这个 SKILL.md 所在的目录**（Codex：`~/.codex/skills/dsh-dialogue/`；Claude Code：`~/.claude/skills/dsh-dialogue/`；两份一样），下面写的 `app/…` 和 `connection.local.json` 都是它里面的文件，调用时用绝对路径；脚本不传 `--config` 时会自己按所在位置找配置。命令都用 `node`，文件都是 UTF-8。开对话时读一遍工作区 `FRAMEWORK.md` 的第 1、3 节（入口 Agent 的角色、一轮怎么协作）就够；`USER/` 和 `protocols/` 是 DSH 的，不要替它填。
 
 0. **起服务**：`node app/launch.mjs --config connection.local.json`。已经在跑就立刻返回 `ready: true`；没跑就起 DSH（端口在 `base_url`）并等它就绪，**DSH 起来时会自己在用户默认浏览器里打开界面**（`connection.local.json` 的 `open_browser: true`）。`--restart-owned` 只在插件改了且无会话运行时用。
 1. **开浏览器并查档位**：`node app/framework.mjs open`，每个对话开头做一次。服务本来就在跑时，这一步让 DSH 进程把界面再开到前面来；用户要的就是看着 DSH 干活。**打开浏览器是用户 2026-09-13 定下的固定要求，不算"操作界面"，不需要回避、不需要再确认，也不要派子代理去评估它**。命令同时打印框架状态：`stage`（first_run / filling / complete）、空着的必填槽、`first_meeting_done`。只查不开用 `node app/framework.mjs state`。**同一对话里从第二条消息起，第 0、1 步都跳过，直接派**；派工报错再回头查。状态里的 `scan`：为空、`age_days` 超过 7、或用户要求重扫，就跑 `node app/scan.mjs`——不只在 first_run，DSH 自己不会扫。
@@ -69,7 +69,7 @@ review 请求格式：
 ````markdown
 <!-- dsh-state -->
 ```json
-{"id":"实际任务ID","verdict":{"decision":"accepted 或 changes_requested","reviewer":"Codex","reasoning":"对实际输出的具体核对理由"}}
+{"id":"实际任务ID","verdict":{"decision":"accepted 或 changes_requested","reviewer":"Codex 或 Claude Code（写实际的那个）","reasoning":"对实际输出的具体核对理由"}}
 ```
 <!-- /dsh-state -->
 ````

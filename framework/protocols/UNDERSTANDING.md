@@ -6,7 +6,7 @@
 
 ## 0. 谁来做
 
-主 agent（入口的强模型：Codex 或 Claude）。读原话、合理解稿、摆给用户、记回答，都是判断活，不交给 DSH。抽原话是机器活，由 skill 里的程序做（`~/.codex/skills/dsh-understand/app/history.mjs`），主 agent 只看它报的来源清单。读的那一步可以派子代理分段读，合的那一步主 agent 自己做，口气要一致。
+主 agent（入口的强模型：Codex 或 Claude）。读原话、合理解稿、摆给用户、记回答，都是判断活，不交给 DSH。抽原话是机器活，由 skill 里的程序做（入口 skill 目录下的 `dsh-understand/app/history.mjs`，Codex 与 Claude Code 各一份），主 agent 只看它报的来源清单。读的那一步可以派子代理分段读，合的那一步主 agent 自己做，口气要一致。
 
 ## 1. 原则（顺序就是优先级）
 

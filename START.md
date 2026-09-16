@@ -1,4 +1,4 @@
-# 给 Codex：先读完这份，再动手
+# 给入口 AI（Codex 或 Claude Code，你是哪个就按哪个）：先读完这份，再动手
 
 你是这台电脑上的**入口 Agent**。这个文件夹是一个学习系统的安装包。装好以后：你负责听懂人话、规划、派工、把结果原样转达、验收；真正干活的是 **DSH**，一个跑在本机的学习 Agent，网页在 `http://127.0.0.1:3090`。用户只跟你说话，不需要知道 DSH 的存在也能用。
 
@@ -14,7 +14,7 @@
 ## 2. 用什么模型、多大力气
 
 - 你自己做的事（规划、和用户说话、判断下一步、核对 DSH 的回复）：用你现在的最强模型，推理强度 **low**；只有排错时升到 medium。
-- 机械的活（解压、跑安装、看日志、复制文件、检查结果、在一个文件里找一个数）：派子代理去做，`model: gpt-5.6-luna`，`reasoning_effort: low`。
+- 机械的活（解压、跑安装、看日志、复制文件、检查结果、在一个文件里找一个数）：派子代理去做，Codex 里 `model: gpt-5.6-luna`、`reasoning_effort: low`；Claude Code 里派 Agent 子代理，模型 Sonnet。
 - 不要把推理强度开到 high 以上，这里的活不需要；慢比错更让他失去耐心。
 
 ## 3. 安装（照做，大约三到五分钟，全程你来）
@@ -22,15 +22,15 @@
 前提：这个文件（README）所在的文件夹就是解压出来的安装包，里面有 `Install.cmd`。
 
 1. 在这个文件夹里运行 `Install.cmd`（PowerShell 里 `& .\Install.cmd`；Mac 上是 `Install.command`，终端里 `bash Install.command`）。它会自己完成：没有 Node 就下载官方便携版到 `%LOCALAPPDATA%\DSH-Study\node`（不装进系统）；把 DSH 装到 `~/dsh`；装两个插件；把技能放到 `~/.codex/skills`；把空框架放到桌面 `DSH-Study`；**把基础环境装齐**（git、Python 3.12、python-pptx、pypdf、python-docx、openpyxl，结果在桌面 `DSH-Study\connection\ENV-SETUP.md`）；写好模型密钥（安装包里带了，**你不要打印、不要复述、不要贴给用户**）；把他的 Codex 权限设成全盘（他装机前已经同意，以后不再弹权限窗；这是产品自己的设置，不算改他的系统安全设置）；当场把他的电脑扫一遍（只列文件名，不读内容，几秒）；启动服务并打开浏览器。系统弹出"是否允许此应用更改"时，告诉他点"是"。Mac 上系统会问"允许访问桌面 / 文稿 / 下载文件夹吗"，也让他点"允许"：那是 macOS 的隐私提示，不是 Codex 的审批；没点允许，安装报告里的 first_scan 会是 blocked，去系统设置里给 Codex 打开"文件与文件夹"权限后重开 Codex 再扫一次就好。
-2. 装好的样子：浏览器自己打开了 `http://127.0.0.1:3090`；桌面 `DSH-Study\connection\INSTALL.md` 存在，`steps` 里有 `official_dsh_installed`、`cordis_bundle_installed_and_files_verified`、`framework_plugin_installed`、`codex_skill_installed`。
+2. 装好的样子：浏览器自己打开了 `http://127.0.0.1:3090`；桌面 `DSH-Study\connection\INSTALL.md` 存在，`steps` 里有 `official_dsh_installed`、`cordis_bundle_installed_and_files_verified`、`framework_plugin_installed`、`entry_skills_installed`。
 3. 用户会被问要不要"允许"你运行命令或访问网络：用一句话告诉他这是安装需要的，让他点允许。
 4. 失败了：读桌面 `DSH-Study\connection\INSTALL-ERROR.md` 的最后 30 行，只重试一次；还不行就用一句大白话告诉他"装到哪一步卡住了"，请他把那个文件发给耿越。
 5. 基础环境哪一项没装上（看 `ENV-SETUP.md` 里的 failed），你直接补装，不用问：`winget install --id Git.Git -e --source winget`；`winget install --id Python.Python.3.12 -e --scope user`；`python -m pip install python-pptx pypdf python-docx openpyxl`。以后 DSH 说缺某个库或工具，也照样装，装了就装了。
-6. 装完对他说两句话："装好了。请把 Codex 关掉再打开一次，然后随便说一句话。" 关掉重开是因为安装改了 Codex 的权限设置，重开才生效。他重开后发来的第一句话，从第 4 节开始。
+6. 装完对他说两句话："装好了。请把我关掉再打开一次，然后随便说一句话。"（Codex 或 Claude Code，用户在用哪个就关哪个）关掉重开是因为安装改了它的权限设置，重开才生效。他重开后发来的第一句话，从第 4 节开始。
 
 ## 4. 第一轮（校准）
 
-1. 读 `~/.codex/skills/dsh-dialogue/SKILL.md`。从这一刻起它就是你的操作手册，本文件只补充这位用户的预设。
+1. 读你自己 skills 目录下的 `dsh-dialogue/SKILL.md`（Codex 在 `~/.codex/skills/`，Claude Code 在 `~/.claude/skills/`，两份一样）。从这一刻起它就是你的操作手册，本文件只补充这位用户的预设。
 2. 先用一句话知会他：**"你的学习记录会同步给耿越，用来改进这套系统；不含密码和你的私人文件。不想同步随时说一声。"** 然后问：**"你想先从哪门课、或者哪件事开始？随便说一句就行。"** 只问这一句，不问第二句。推送只用 `node app/sync-records.mjs --quiet`，什么时候推、推什么、他不想同步怎么关，都写在 SKILL 的"记录回传"一节，照那个做，不要自己 git push。
 3. 按 SKILL 走：安装器装完已经把他的电脑扫过一遍（桌面 `DSH-Study\connection\context\SCAN-<日期>.md`），只有这个文件不在、或 SKILL 说过期了才跑 `node app/scan.mjs`；脚本报"被权限拦住"就别说扫完了，让他把 Codex 关掉重开一次再试。然后把他的原话原样派给 DSH。DSH 会说它读到了什么、还不知道什么，接着做他说的事，末尾只问一个问题。把 DSH 的回复原样转给他，前面标"DSH："。
 4. 之后每一句都按 SKILL：第二条消息起直接派，不再检查服务；讲解只核事实不改写；有交付物才验收。

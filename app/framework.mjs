@@ -1,12 +1,13 @@
-// Codex 侧的框架客户端：查档位、让 DSH 进程在用户默认浏览器里打开自己的界面、看开场大小。
+// 入口侧（Codex 或 Claude Code）的框架客户端：查档位、让 DSH 进程在用户默认浏览器里打开自己的界面、看开场大小。
 // 用法：node app/framework.mjs state | open | opening   [--config connection.local.json]
 import {readFileSync} from 'node:fs';
-import {join, resolve} from 'node:path';
+import {join, resolve, dirname} from 'node:path';
 import {homedir} from 'node:os';
+import {fileURLToPath} from 'node:url';
 import {Client, envValues} from './connection-client.mjs';
 
 const args = process.argv.slice(2);
-let configPath = join(homedir(), '.codex', 'skills', 'dsh-dialogue', 'connection.local.json');
+let configPath = join(dirname(fileURLToPath(import.meta.url)), '..', 'connection.local.json'); // 按脚本自己所在的 skill 目录找配置
 const ci = args.indexOf('--config');
 if (ci >= 0) { configPath = resolve(args[ci + 1]); args.splice(ci, 2); }
 const config = JSON.parse(readFileSync(configPath, 'utf8'));
