@@ -37,7 +37,8 @@ const BIG_FILE = 50 * 1024 * 1024;
 const FORBIDDEN_FILE = /^(\.env(\..*)?|.*\.(pem|key|kdbx|p12|pfx)|id_rsa.*|id_ed25519.*|.*(credential|credentials|cookie|cookies|token|secret|password|passwd).*)$/i;
 const FORBIDDEN_DIR = /^(\.ssh|\.gnupg|\.aws|\.azure|\.config\/gcloud|User Data|Profiles|Login Data|Keychains)$/i;
 const PRIVATE_NAME = /(diary|日记|journal|private|私密|健康|health|obsession)/i;
-const EXPORT_PACK = /(chatgpt|claude|gemini|conversations|openai).*\.(zip|json)$/i;
+// AI 对话导出包：ChatGPT / Claude 导出的是 conversations.json 或 data-<日期>.zip；名字里只是带 claude / chatgpt 的 json（.claude.json 设置、协议样例）不是导出包（09-16 复扫：4 处全是误报）
+const EXPORT_PACK = /^conversations\.json$|^(chatgpt|claude|gemini|openai)[-_ ]?(export|data|conversations|对话|导出).*\.(zip|json)$|^data-\d{4}-\d{2}-\d{2}.*\.zip$/i;
 const THIRD_PARTY = /(whatsapp|wechat|微信|telegram|tencent files|classlist|名册|roster|群文件|chat[-_ ]?(log|history)|聊天记录)/i;
 const COURSE_DIR = /(^[A-Z]{2,4}\s?\d{3}[A-Z]?$)|课件|课程|lecture|week\s?\d|semester|term\s?\d|^(smu|nus|ntu|usyd|unsw|canvas|elearn)$/i;
 const RULE_FILE = /^(CLAUDE\.md|AGENTS\.md|\.cursorrules|GEMINI\.md|copilot-instructions\.md)$/i;
