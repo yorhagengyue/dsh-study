@@ -110,12 +110,34 @@ function writeSkeleton(d, force) {
   const L = [
     `# 全扫反思 · ${d.date}`, '',
     `扫描：\`connection/context/SCAN-${d.date}.md\`（${d.files} 文件，${d.roots} 根，覆盖 \`${d.coverage}\`${d.blocked ? '，⚠ 被权限拦住' : ''}，本机 ${hostname()}）。写的人：（待填：Codex 或 Claude Code，写实际的那个）。写于：（待填：日期 时间）。`, '',
-    '按 `protocols/DISCOVERY.md` 第 8 节写。每节三到五句，写完把所有「待填」标记连括号一起删掉，再跑 `node <本 skill 目录>/app/run.mjs check`，它报 ok 才算扫完。收件人是维护者、下一轮的入口和以后的 DSH，不是用户；对用户说的话在第 5 节。', '',
-    `## ${SECTIONS[0]}`, '', '（待填：他是谁、在做什么、怎么组织自己的东西。用候选来源、目录结构、课件和笔记的分布说话，不列文件。从积极的一面开始；量他的尺度是层级不是数量。私密来源只写模式，标【含私密】。）', '',
-    `## ${SECTIONS[1]}`, '', '（待填：权限、禁区误报、被当成课件的代码目录、网盘或 iCloud 副本、聊天软件缓存占掉的预算。下次怎么修；能改成规则的写成一句「以后……」。）', '',
-    `## ${SECTIONS[2]}`, '', '（待填：三处以内的路径和为什么。只问一个问题，把那句话写出来。）', '',
-    `## ${SECTIONS[3]}`, '', '（待填：没有上一次就写「第一次」；有就说变化集中在哪、说明他这几天在忙什么。）', '',
-    `## ${SECTIONS[4]}`, '', '（待填：原样贴上对用户说的那几句和那一个问题。）', ''];
+    '先读本 skill 的 SKILL.md 第 2 节「怎么想」，再填。每节开头的「> 标准」和「> 坏例子」是尺子，留着，填在它们下面。写完把所有「待填」标记连括号一起删掉，把最后的自检逐条勾掉，再跑 `node <本 skill 目录>/app/run.mjs check`，它报 ok 才算扫完。收件人是维护者、下一轮的入口和以后的 DSH，不是用户；对用户说的话在第 5 节。', '',
+    `## ${SECTIONS[0]}`, '',
+    '> 标准：三到五句。第一句是主线；后面是两三个模式，每个先写道理再写下一层需要什么；最后一句写他现在在哪一层。每句删掉项目名仍成立。',
+    '> 坏例子：「22 个根、12,566 个文件，课程两门，最近在动的是 X」，这是数清单。「他很勤奋、很有条理」，这是空评价。「他应该少开几条线」，这是建议先于理解。', '',
+    '（待填）', '',
+    `## ${SECTIONS[1]}`, '',
+    '> 标准：每条误判点名到具体的目录或规则，并写成一句「以后……」。看不见的地方只写「有」，不猜。',
+    '> 坏例子：「覆盖不完整」，不说哪里、为什么。', '',
+    '（待填）', '',
+    `## ${SECTIONS[2]}`, '',
+    '> 标准：三处以内，每处写它会改变第 1 节的哪一句判断。只问一个问题，他一句话能答，答了会改变你下一步做什么。',
+    '> 坏例子：问卷式的一串；问「你最近在忙什么」这种扫描已经回答了的；问他的感受。', '',
+    '（待填）', '',
+    `## ${SECTIONS[3]}`, '',
+    '> 标准：变化说明他的注意力去了哪里、离开了哪里；分清用户动了和规则变了。第一次扫就写「第一次」。',
+    '> 坏例子：重复新增、修改、消失的数字。', '',
+    '（待填）', '',
+    `## ${SECTIONS[4]}`, '',
+    '> 标准：三到五句摆坐标，从他的座位说；一个问题。他读完知道你看见了他，而不是看见了他的文件。原样贴上说出去的话。',
+    '> 坏例子：报数字、报流程、解释方法、夸他。', '',
+    '（待填）', '',
+    '## 自检（交之前逐条过，过不了回去重写；check 会看这里有没有勾完）', '',
+    '- [ ] 删掉项目名、课程名、工具名，第 1 节每句还成立',
+    '- [ ] 每个模式先写了它的道理，再写下一层需要什么，没有一句「他应该」',
+    '- [ ] 没有把事件当结论；事件只做括号里的证据',
+    '- [ ] 尺度是层级不是数量',
+    '- [ ] 他自己读到会觉得「这是在说我」，不是「这是在数我的文件」',
+    '- [ ] 最不确定的一句已标出：（待填：把那句话抄在这里）', ''];
   writeFileSync(p, L.join('\n'), 'utf8');
   return {path: p, created: true};
 }
@@ -125,13 +147,18 @@ function checkReflection(scanFile) {
   if (!existsSync(p)) return {ok: false, reflection: p, missing: ['文件不存在：先跑 node app/run.mjs --no-scan 生成骨架再填']};
   const t = readFileSync(p, 'utf8');
   const missing = [];
-  for (const h of SECTIONS) {
+  const MIN = [80, 40, 40, 20, 60]; // 每节去掉「> 标准 / > 坏例子」和待填标记之后至少要有的字数：第 1 节三到五句，第 5 节是对用户说的原话
+  SECTIONS.forEach((h, i) => {
     const body = section(t, h);
-    if (body === null) { missing.push(`「${h}」这一节没了`); continue; }
-    if (body.replace(/（待填[^）\n]*）/g, '').trim().length < 20) missing.push(`「${h}」没填`);
-  }
+    if (body === null) { missing.push(`「${h}」这一节没了`); return; }
+    const own = body.split(/\r?\n/).filter(l => !l.trim().startsWith('>')).join('\n').replace(/（待填[^）\n]*）/g, '').trim();
+    if (own.length < MIN[i]) missing.push(`「${h}」没填够（${own.length} 字，至少 ${MIN[i]}）`);
+  });
   const m = t.match(/（待填[^）\n]*）/g);
-  if (m) missing.push(`还有 ${m.length} 处「（待填」没删（含开头的写的人 / 写于）`);
+  if (m) missing.push(`还有 ${m.length} 处「（待填」没删（含开头的写的人 / 写于、自检里最不确定的一句）`);
+  const boxes = (t.match(/^- \[[ xX]\] /gm) || []).length, unticked = (t.match(/^- \[ \] /gm) || []).length;
+  if (!boxes) missing.push('自检那一节没了');
+  else if (unticked) missing.push(`自检还有 ${unticked} 项没勾（勾是 - [x]）`);
   return {ok: missing.length === 0, reflection: p, missing};
 }
 
