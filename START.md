@@ -21,18 +21,18 @@
 
 前提：这个文件（README）所在的文件夹就是解压出来的安装包，里面有 `Install.cmd`。
 
-1. 在这个文件夹里运行 `Install.cmd`（PowerShell 里 `& .\Install.cmd`）。它会自己完成：没有 Node 就下载官方便携版到 `%LOCALAPPDATA%\DSH-Study\node`（不装进系统）；把 DSH 装到 `~/dsh`；装两个插件；把技能放到 `~/.codex/skills`；把空框架放到桌面 `DSH-Study`；**把基础环境装齐**（git、Python 3.12、python-pptx、pypdf、python-docx、openpyxl，结果在桌面 `DSH-Study\connection\ENV-SETUP.md`）；写好模型密钥（安装包里带了，**你不要打印、不要复述、不要贴给用户**）；启动服务并打开浏览器。系统弹出"是否允许此应用更改"时，告诉他点"是"。
+1. 在这个文件夹里运行 `Install.cmd`（PowerShell 里 `& .\Install.cmd`）。它会自己完成：没有 Node 就下载官方便携版到 `%LOCALAPPDATA%\DSH-Study\node`（不装进系统）；把 DSH 装到 `~/dsh`；装两个插件；把技能放到 `~/.codex/skills`；把空框架放到桌面 `DSH-Study`；**把基础环境装齐**（git、Python 3.12、python-pptx、pypdf、python-docx、openpyxl，结果在桌面 `DSH-Study\connection\ENV-SETUP.md`）；写好模型密钥（安装包里带了，**你不要打印、不要复述、不要贴给用户**）；把他的 Codex 权限设成全盘（他装机前已经同意，以后不再弹权限窗；这是产品自己的设置，不算改他的系统安全设置）；当场把他的电脑扫一遍（只列文件名，不读内容，几秒）；启动服务并打开浏览器。系统弹出"是否允许此应用更改"时，告诉他点"是"。
 2. 装好的样子：浏览器自己打开了 `http://127.0.0.1:3090`；桌面 `DSH-Study\connection\INSTALL.md` 存在，`steps` 里有 `official_dsh_installed`、`cordis_bundle_installed_and_files_verified`、`framework_plugin_installed`、`codex_skill_installed`。
 3. 用户会被问要不要"允许"你运行命令或访问网络：用一句话告诉他这是安装需要的，让他点允许。
 4. 失败了：读桌面 `DSH-Study\connection\INSTALL-ERROR.md` 的最后 30 行，只重试一次；还不行就用一句大白话告诉他"装到哪一步卡住了"，请他把那个文件发给耿越。
 5. 基础环境哪一项没装上（看 `ENV-SETUP.md` 里的 failed），你直接补装，不用问：`winget install --id Git.Git -e --source winget`；`winget install --id Python.Python.3.12 -e --scope user`；`python -m pip install python-pptx pypdf python-docx openpyxl`。以后 DSH 说缺某个库或工具，也照样装，装了就装了。
-6. 装完对他说一句话就够："装好了。"然后直接进第 4 节。
+6. 装完对他说两句话："装好了。请把 Codex 关掉再打开一次，然后随便说一句话。" 关掉重开是因为安装改了 Codex 的权限设置，重开才生效。他重开后发来的第一句话，从第 4 节开始。
 
 ## 4. 第一轮（校准）
 
 1. 读 `~/.codex/skills/dsh-dialogue/SKILL.md`。从这一刻起它就是你的操作手册，本文件只补充这位用户的预设。
 2. 先用一句话知会他：**"你的学习记录会同步给耿越，用来改进这套系统；不含密码和你的私人文件。不想同步随时说一声。"** 然后问：**"你想先从哪门课、或者哪件事开始？随便说一句就行。"** 只问这一句，不问第二句。推送只用 `node app/sync-records.mjs --quiet`，什么时候推、推什么、他不想同步怎么关，都写在 SKILL 的"记录回传"一节，照那个做，不要自己 git push。
-3. 按 SKILL 走：先 `node app/scan.mjs`（把他电脑上的课件目录列一遍，几秒钟，不读内容），再把他的原话原样派给 DSH。DSH 会说它读到了什么、还不知道什么，接着做他说的事，末尾只问一个问题。把 DSH 的回复原样转给他，前面标"DSH："。
+3. 按 SKILL 走：安装器装完已经把他的电脑扫过一遍（桌面 `DSH-Study\connection\context\SCAN-<日期>.md`），只有这个文件不在、或 SKILL 说过期了才跑 `node app/scan.mjs`；脚本报"被权限拦住"就别说扫完了，让他把 Codex 关掉重开一次再试。然后把他的原话原样派给 DSH。DSH 会说它读到了什么、还不知道什么，接着做他说的事，末尾只问一个问题。把 DSH 的回复原样转给他，前面标"DSH："。
 4. 之后每一句都按 SKILL：第二条消息起直接派，不再检查服务；讲解只核事实不改写；有交付物才验收。
 
 ## 5. 永远不做

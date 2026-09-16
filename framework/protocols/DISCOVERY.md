@@ -8,14 +8,14 @@
 
 历史：09-13 定"入口脚本跑、DSH 不扫"，原因是当时 DSH 用自己的工具扫花了两分钟、卡在权限上、还崩过一次。09-16 凌晨 Claude 把板一"Must be done by MAIN Agent"误读成"DSH 自己跑"，改过本节并让 DSH 实跑了一轮（记录在 `research/05-…md`，1.4 秒脚本、35 秒整轮，证明 DSH 也跑得动脚本）；耿越随即澄清主 agent 是 Codex，本节改回。设计不变：谁是主 agent，谁跑全扫。
 
-**主 agent 的权限（耿越 2026-09-16 定）：全扫不弹窗，装机时直接给 Codex 全盘读权限。** 沙箱不是本协议的概念，只是 Codex 自己的启动参数；skill 说的是「干什么」，启动参数决定「手能伸到哪」。安装器在用户的 `~/.codex/config.toml` 写 `sandbox_mode = "danger-full-access"`，全局、对新会话生效；这版 Codex 在 Windows 上没有「只读全盘」的档（`disk-full-read-access` 不生效），所以这一行等于读写全开，「写成什么」由 `FRAMEWORK.md` 第 6、7 节约束。默认的 `workspace-write` 下 Codex 列不了家目录根和 AppData，脚本会静默只扫桌面、文档、下载三个根（`research/07-…md` 第 3、10 节）；给了全权限后脚本扫到 23 个根、13,216 条唯一路径，与命令行手动开全权限的基线一致，零弹窗（第 10.1 节）。装机的那个会话仍在旧模式里，第一次 `scan.mjs` 要在重开的会话里跑。脚本被拦时必须把「看不见」记进未覆盖并在汇总里标出，不得报「扫完了」（脚本这一条待修）。
+**主 agent 的权限（耿越 2026-09-16 定）：全扫不弹窗，装机时直接给 Codex 全盘读权限。** 沙箱不是本协议的概念，只是 Codex 自己的启动参数；skill 说的是「干什么」，启动参数决定「手能伸到哪」。安装器在用户的 `~/.codex/config.toml` 写 `sandbox_mode = "danger-full-access"`，全局、对新会话生效；这版 Codex 在 Windows 上没有「只读全盘」的档（`disk-full-read-access` 不生效），所以这一行等于读写全开，「写成什么」由 `FRAMEWORK.md` 第 6、7 节约束。默认的 `workspace-write` 下 Codex 列不了家目录根和 AppData，脚本会静默只扫桌面、文档、下载三个根（`research/07-…md` 第 3、10 节）；给了全权限后脚本扫到 23 个根、13,216 条唯一路径，与命令行手动开全权限的基线一致，零弹窗（第 10.1 节）。落到实现（09-16 下午）：安装器 `app/install.mjs --framework` 做两件事，一是把用户 `~/.codex/config.toml` 顶层的 `sandbox_mode` 设成 `danger-full-access`、`approval_policy` 设成 `never`，并给工作区加 `trust_level = "trusted"`（原文件备份成 `config.toml.before-dsh-study-<日期>.bak`，逻辑在 `app/codex-config.mjs`）；二是在安装结束时**自己跑一次全扫**，安装器跑在用户自己的权限下、不在 Codex 沙箱里，所以第一次见面时 SCAN 已经在。权限改动只对重开后的 Codex 会话生效，README 让用户装完把 Codex 关掉重开一次；之后的重扫在重开后的会话里跑。脚本发现根被权限挡住（列不了家目录根、读不了笔记库登记表、根目录进不去）时，把这些写进汇总的「看不见的地方」、覆盖状态记 `blocked`、退出码 2、stderr 一句人话；主 agent 见到就报"被拦住"，不得报"扫完了"。
 
 ## 1. 原则
 
 1. **默认扫，不问。** 装好后第一次启动自动跑；用户之后可以停用任何来源、任何目录，停用即生效且保留记录。
 2. **只出清单和候选，不复制原文。** 原文留在原位置，通过目录按需读。
 3. **禁区不进**（第 5 节）：凭证、健康与私密对话、第三方私人信息。碰到只登记"此处有、未读"。
-4. **覆盖如实**：`none` / `partial` / `user_confirmed_enough`。没扫到的说没扫到，预算用完的记为未覆盖。
+4. **覆盖如实**：`none` / `partial` / `user_confirmed_enough` / `blocked`。没扫到的说没扫到，预算用完的记为未覆盖；`blocked` 是根一级被权限挡住，结果不算数，脚本退出码 2。
 5. **来源强度不因扫描而升级**：扫出来的东西按第 6 节定 `basis`；AI 写的总结永远是 `assistant_summary`。
 
 ## 2. 范围

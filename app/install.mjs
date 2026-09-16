@@ -107,6 +107,16 @@ write(join(skill,'connection.local.json'),config);
 // Installed client is self-contained, sharing the same portable source as the App.
 cpSync(join(root,'app'),join(skill,'app'),{recursive:true});cpSync(join(root,'connection-plugin'),join(skill,'connection-plugin'),{recursive:true});
 report.steps.push('codex_skill_installed');
+if(frameworkMode){
+  // 耿越 2026-09-16 定：全扫不弹窗，装机时直接给 Codex 全盘权限。只对重开后的 Codex 会话生效（README 让用户装完重开一次）。
+  try{const {applyCodexConfig}=await import('./codex-config.mjs');const r=applyCodexConfig({trust:[workspace,root]});report.codex_config={path:r.path,changed:r.changed,changes:r.changes,backup:r.backup};report.steps.push(r.changed?'codex_full_access_configured':'codex_full_access_already_set');}
+  catch(e){report.codex_config={error:String(e?.message??e)};report.steps.push('codex_full_access_failed');}
+  // 装完当场跑一次全扫：安装器跑在用户自己的权限下、不在 Codex 沙箱里，看得全；第一次见面时 SCAN 已经在。失败不阻塞安装。
+  try{const r=spawnSync(process.execPath,[join(skill,'app','scan.mjs'),'--config',join(skill,'connection.local.json')],{cwd:workspace,windowsHide:true,encoding:'utf8',maxBuffer:50000000,timeout:600000});let stats=null;try{stats=JSON.parse(String(r.stdout??'').trim());}catch{}
+    report.first_scan={exit_code:r.status,roots:stats?.roots??null,files:stats?.files??null,coverage:stats?.coverage??null,blocked:stats?.blocked_at??null,scan:stats?.scan??null,stderr:redactor(dshRoot)(String(r.stderr??'')).slice(0,2000)};
+    report.steps.push(r.status===0&&stats?'first_scan_done':'first_scan_incomplete');}
+  catch(e){report.first_scan={error:String(e?.message??e)};report.steps.push('first_scan_failed');}
+}
 if(process.platform==='win32')write(join(workspace,'启动学习应用.cmd'),'@echo off\r\nchcp 65001 >nul\r\n"'+process.execPath+'" "'+join(appRoot,'app','launch.mjs')+'" --config "'+join(appRoot,'app.local.json')+'"\r\n');
 else {const p=join(workspace,'启动学习应用.command');write(p,'#!/bin/sh\nexec '+[process.execPath,join(appRoot,'app','launch.mjs'),'--config',join(appRoot,'app.local.json')].map(s=>"'"+s.replace(/'/g,"'\\''")+"'").join(' ')+'\n');const{chmodSync}=await import('node:fs');chmodSync(p,0o700);}
 report.finished_at=Date.now();report.elapsed_ms=report.finished_at-started;report.restart_required=true;
