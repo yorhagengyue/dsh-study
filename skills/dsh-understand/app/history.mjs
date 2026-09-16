@@ -95,7 +95,7 @@ const add = (r) => { if (SINCE && r.ts && r.ts.slice(0, 10) < SINCE) return; row
         if (!line) continue; let o; try { o = JSON.parse(line); } catch { continue; }
         const t = o.type, p = (o.payload && typeof o.payload === 'object') ? o.payload : {};
         if (t === 'session_meta') { sessId = p.id || o.id; cwd = p.cwd || ''; if (p.source && typeof p.source === 'object') isSub = true; }
-        else if (t === 'inter_agent_communication_metadata') isSub = true;
+        // Main conversations that spawned children also carry inter_agent_communication_metadata; only session_meta.source (an object) marks a spawned session. Found by Codex on the owner's Mac, 2026-09-16.
         else if (t === 'response_item' && p.type === 'message' && p.role === 'user') {
           for (const c of p.content || []) if (c && (c.type === 'input_text' || c.type === 'text')) { const x = clean(c.text); if (x && x !== last) { got.push([o.timestamp, x]); last = x; } }
         } else if (t === 'event_msg' && p.type === 'user_message') { const x = clean(p.message); if (x && x !== last) { got.push([o.timestamp, x]); last = x; } }
