@@ -75,7 +75,7 @@ function digest(scanFile) {
   const unc = (section(text, '未覆盖') || '').split(/\r?\n/).filter(l => l.startsWith('- '));
   const invisible = tableRows(section(text, '看不见的地方'));
   const chg = section(text, '变化') || '';
-  const chgHead = (chg.match(/新增 \d+，修改 \d+，消失 \d+。/) || [''])[0];
+  const chgHead = chg.split(/\r?\n/).find(l => /^新增 \d+，修改 \d+，消失 \d+。/.test(l)) || ''; // 整段第一行：含"只列类另有变化 N 处"和"规则变了"的说明
   const chgPrev = ((section(text, '变化') !== null && text.match(/^## 变化（对比 (.+?)）/m)) || [])[1];
   const chgItems = chg.split(/\r?\n/).map(l => l.match(/^- (新增|修改|消失) `(.+)`$/)).filter(Boolean);
   const out = [];

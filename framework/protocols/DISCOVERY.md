@@ -30,7 +30,7 @@
 | 笔记库 | `%APPDATA%\obsidian\obsidian.json` 登记的 vault 根；Notion、Logseq 导出目录 | `~/Library/Application Support/obsidian/obsidian.json` 登记的 vault 根 | 标题索引；用户自己写的笔记 | `user_rule_file`；镜像或 AI 生成的笔记按 `assistant_summary` |
 | AI 对话导出包 | Downloads、Documents 里 ChatGPT、Claude、Gemini 的导出 zip 或 json | 同左 | 默认只列（第 5 节）；用户允许后抽用户自己发的消息 | 用户消息 `user_stated`；AI 回复 `assistant_summary` |
 | 学校平台 | 不扫文件；从已有配置发现，例如 `sources.local.json`、`.env` 里的变量**名** | 同左 | 平台名、访问方式的名字 | 登记为 `source`，不读值 |
-| 本地课件目录 | 桌面、Documents 下名字含课程代码、学校名，或"课件、课程、lecture、week"的目录 | 同左 | 课程名、周次、文件清单 | `inferred_from_behavior`，谈话里确认后升级 |
+| 本地课件目录 | 桌面、Documents 下名字含课程代码、学校名，或"课件、课程、lecture、week"的目录，**且 3 层内真有课件类文件**（pptx、pdf、docx、bpmn），不在代码目录（src、lib、pages…）或按日期命名的 AI 工作区里；父目录已算的子目录（Week 1…）不单列 | 同左 | 课程名、周次、文件清单 | `inferred_from_behavior`，谈话里确认后升级 |
 | 日历 | `.ics` 文件 | 同左 | 课表、截止 | `inferred_from_behavior` |
 
 ### 2.2 用户内容区
@@ -63,7 +63,7 @@
 
 ## 5. 禁区判定
 
-- **路径**：`.env*`、`*.pem`、`*.key`、`id_rsa*`、`.ssh/`、名字含 credential、cookie、token 的文件、浏览器 profile、密码管理器数据、钥匙串。只登记存在，不读。
+- **路径**：`.env*`、`*.pem`、`*.key`、`id_rsa*`、`.ssh/`、名字含 credential、cookie、secret、password 的文件、浏览器 profile、密码管理器数据、钥匙串。只登记存在，不读。**源码文件名里的这些词不算**（`tokens.ts`、`approval_tokens.rs` 是代码），token 只在配置形态的文件名里才算（`api-token`、`tokens.json`），纪要和文档不算。2026-09-16 定：之前 54 处「像凭证」里大半是这种误报。
 - **内容**：读到形如密钥的行（`sk-` 开头、数字加 `~` 开头的长串、`Bearer` 后的长串、长随机串），整个文件标"含凭证形态，未读"，不摘录。
 - **私密**：AI 对话导出包、日记类文件默认 `sensitivity = private`，只列不抽；用户在谈话里逐个允许后才抽。放了 `.dsh-private` 标记文件的目录整个不读。
 - **第三方**：聊天记录、名册、别人的成绩、群文件默认 `third_party`，不抽。
@@ -84,7 +84,7 @@
 
 ## 7. 重扫
 
-重扫 = 入口再跑一次 `scan.mjs`（它自动对比上一份清单）。触发：用户要求、受权来源出现新文件、学期切换、每周一次。只报差异：新增、修改、消失、新禁区。差异写进当次 `SCAN-<日期>.md` 的"变化"一节，不重填已确认的槽位。
+重扫 = 入口再跑一次 `scan.mjs`（它自动对比上一份清单）。触发：用户要求、受权来源出现新文件、学期切换、每周一次。只报差异：新增、修改、消失、新禁区。**差异只看内容类文件**：聊天软件、私密、禁区这些只列的路径另给一个数，不列。**清单头部记规则版本**：规则变了，按现在的规则不在范围内的旧路径不算消失，汇总里写明是规则变了（2026-09-16：消失 660 里 631 条是不再列工作区造成的，差点被当成用户删了东西）。差异写进当次 `SCAN-<日期>.md` 的"变化"一节，不重填已确认的槽位。
 
 ## 8. 告诉用户什么
 

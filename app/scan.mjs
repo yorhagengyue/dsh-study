@@ -38,9 +38,27 @@ const FORBIDDEN_FILE = /^(\.env(\..*)?|.*\.(pem|key|kdbx|p12|pfx)|id_rsa.*|id_ed
 const FORBIDDEN_DIR = /^(\.ssh|\.gnupg|\.aws|\.azure|\.config\/gcloud|User Data|Profiles|Login Data|Keychains)$/i;
 const PRIVATE_NAME = /(diary|日记|journal|private|私密|健康|health|obsession)/i;
 const EXPORT_PACK = /(chatgpt|claude|gemini|conversations|openai).*\.(zip|json)$/i;
-const THIRD_PARTY = /(whatsapp|wechat|微信|telegram|classlist|名册|roster|群文件|chat[-_ ]?(log|history)|聊天记录)/i;
+const THIRD_PARTY = /(whatsapp|wechat|微信|telegram|tencent files|classlist|名册|roster|群文件|chat[-_ ]?(log|history)|聊天记录)/i;
 const COURSE_DIR = /(^[A-Z]{2,4}\s?\d{3}[A-Z]?$)|课件|课程|lecture|week\s?\d|semester|term\s?\d|^(smu|nus|ntu|usyd|unsw|canvas|elearn)$/i;
 const RULE_FILE = /^(CLAUDE\.md|AGENTS\.md|\.cursorrules|GEMINI\.md|copilot-instructions\.md)$/i;
+// 09-16 第二版规则。规则一变就改这个标记：清单头部记下它，比较两次清单时才分得清"规则变了"和"用户动了"（09-16 消失 660 里 631 条其实是不再列工作区）。
+const SCAN_RULES_VERSION = '2026-09-16b';
+const CODE_EXT = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.py', '.rs', '.go', '.java', '.kt', '.swift', '.c', '.cc', '.cpp', '.h', '.hpp', '.cs', '.rb', '.php', '.sql', '.css', '.scss', '.less', '.html', '.vue', '.svelte', '.sh', '.ps1']);
+const CONFIG_EXT = new Set(['', '.txt', '.json', '.yaml', '.yml', '.toml', '.ini', '.cfg', '.conf', '.env', '.secret', '.key']);
+const STRONG_SECRET_WORD = /(^|[^a-z])(credentials?|cookies?|secrets?|passwords?|passwd|私钥|密码)([^a-z]|$)/i;
+const TOKEN_WORD = /(^|[^a-z])tokens?([^a-z]|$)/i;
+// 禁区判定（DISCOVERY 5）。09-16 实测 54 处"文件名像凭证"里大半是 tokens.ts、approval_tokens.rs、带 token 字样的纪要：源码文件名里的 token / secret 是代码，不是凭证。
+const isForbiddenFile = (name) => {
+  const ext = extname(name).toLowerCase();
+  if (/^(\.env(\..*)?|.*\.(pem|key|kdbx|p12|pfx|ppk)|id_rsa.*|id_ed25519.*|\.netrc|\.npmrc|\.pypirc|.*[-_]key)$/i.test(name)) return true;
+  if (CODE_EXT.has(ext)) return false;
+  if (STRONG_SECRET_WORD.test(name)) return true;
+  return TOKEN_WORD.test(name) && CONFIG_EXT.has(ext); // token 只在配置形态的文件名里才算（api-token、tokens.json），纪要和文档不算
+};
+const COURSE_EXT = new Set(['.pptx', '.ppt', '.pdf', '.docx', '.doc', '.bpmn', '.ipynb', '.xlsx']);
+const NOT_COURSE_PARENT = /^(src|lib|app|pages|components|packages|public|assets|static|test|tests|spec|__tests__|vendor|work|outputs|runs|workspace|cases)$/i;
+// 代码或 AI 工作区（按日期命名的目录）里叫 canvas / week1 的目录不是课件（09-16：13 处里 5 处是这种）
+const underCodeParent = (p, root) => p.slice(root.length + 1).split(sep).slice(0, -1).some(c => NOT_COURSE_PARENT.test(c) || /^\d{4}-\d{2}-\d{2}$/.test(c));
 
 // ---- 看不见的地方：根一级被权限挡住就记在这里，结果不算完整 ----
 const blocked = [];   // {path, what, error}
@@ -87,7 +105,7 @@ const addKnown = (category, p, basis, note = '') => { if (existsSync(p)) known.p
 for (const f of ['CLAUDE.md', 'AGENTS.md', '.cursorrules']) addKnown('用户维护的规则文件', join(HOME, f), 'user_rule_file');
 addKnown('用户维护的规则文件', join(HOME, '.codex', 'AGENTS.md'), 'user_rule_file');
 addKnown('用户维护的规则文件', join(HOME, '.claude', 'CLAUDE.md'), 'user_rule_file');
-try { for (const d of readdirSync(join(HOME, '.claude', 'projects'))) { const m = join(HOME, '.claude', 'projects', d, 'memory'); if (existsSync(m)) addKnown('AI 工具的记忆', m, 'assistant_summary', `${readdirSync(m).filter(f => f.endsWith('.md')).length} 个文件`); } } catch {}
+try { for (const d of readdirSync(join(HOME, '.claude', 'projects'))) { const m = join(HOME, '.claude', 'projects', d, 'memory'); if (!existsSync(m)) continue; const n = readdirSync(m).filter(f => f.endsWith('.md')).length; if (n) addKnown('AI 工具的记忆', m, 'assistant_summary', `${n} 个文件`); } } catch {}
 addKnown('AI 工具的记忆', join(HOME, '.codex', 'memories'), 'assistant_summary');
 try { for (const d of readdirSync(join(HOME, '.codex', 'skills'))) addKnown('AI 工具的技能', join(HOME, '.codex', 'skills', d, 'SKILL.md'), '不抽事实'); } catch {}
 try { for (const d of readdirSync(join(HOME, '.claude', 'skills'))) addKnown('AI 工具的技能', join(HOME, '.claude', 'skills', d), '不抽事实'); } catch {}
@@ -103,8 +121,8 @@ const calendars = [];
 const ruleFiles = [];
 const uncovered = [];   // 预算外或读不了
 let files = 0, bytes = 0, dirs = 0, stopped = null;
-const topOf = (p, root) => { const rel = p.slice(root.length + 1); const i = rel.indexOf(sep); return join(root, i < 0 ? rel : rel.slice(0, i)); };
-function walk(dir, root, depth, label = '') {
+const topOf = (p, root) => { const rel = p.slice(root.length + 1); const i = rel.indexOf(sep); return i < 0 ? join(root, '（根上的零散文件）') : join(root, rel.slice(0, i)); }; // 桌面根上的快捷方式、zip 归成一行，不各占一行
+function walk(dir, root, depth, label = '', flags = {third: false, priv: false}) { // flags：祖先目录里有聊天软件 / 私密名字，整棵子树都按只列（09-16：微信缓存深处的文件之前被当成普通文件进了变化统计）
   if (stopped) return;
   if (Date.now() - started > MAX_MS) { stopped = '时间预算用完'; uncovered.push(dir); return; }
   if (files >= MAX_FILES) { stopped = '文件数预算用完'; uncovered.push(dir); return; }
@@ -123,9 +141,9 @@ function walk(dir, root, depth, label = '') {
       if (EXCLUDE_DIR.test(e.name) || isVirtualEnv(p)) continue;
       if (FORBIDDEN_DIR.test(e.name)) { forbidden.push({path: p, kind: '凭证或浏览器数据目录，未进'}); continue; }
       if (rootSet.has(p.toLowerCase())) continue; // 另一个根（仓库、笔记库），单独走，不在这里重复列
-      if (COURSE_DIR.test(e.name)) courseDirs.push(p);
+      if (COURSE_DIR.test(e.name) && !underCodeParent(p, root)) courseDirs.push(p);
       if (p.toLowerCase() === workspace.toLowerCase()) continue; // 框架自己不算用户内容
-      walk(p, root, depth + 1);
+      walk(p, root, depth + 1, '', {third: flags.third || THIRD_PARTY.test(e.name), priv: flags.priv || PRIVATE_NAME.test(e.name)});
       continue;
     }
     if (!e.isFile()) continue;
@@ -137,10 +155,10 @@ function walk(dir, root, depth, label = '') {
     const ds = dirStats.get(top) || {files: 0, bytes: 0, latest: 0, types: new Map()};
     ds.files++; ds.bytes += st.size; ds.latest = Math.max(ds.latest, st.mtimeMs); ds.types.set(ext || '(无后缀)', (ds.types.get(ext || '(无后缀)') || 0) + 1); dirStats.set(top, ds);
     let use = '其他', owner = '本人', handle = READ_EXT.has(ext) ? '可读' : '只列';
-    if (FORBIDDEN_FILE.test(e.name)) { handle = '禁区未读'; use = '凭证形态'; forbidden.push({path: p, kind: '文件名像凭证，未读'}); }
+    if (isForbiddenFile(e.name)) { handle = '禁区未读'; use = '凭证形态'; forbidden.push({path: p, kind: '文件名像凭证，未读'}); }
     else if (EXPORT_PACK.test(e.name)) { handle = '私密，只列'; use = 'AI 对话导出包'; exportPacks.push(p); }
-    else if (PRIVATE_NAME.test(e.name) || PRIVATE_NAME.test(basename(dir))) { handle = '私密，只列'; use = '私密'; }
-    else if (THIRD_PARTY.test(e.name) || THIRD_PARTY.test(basename(dir))) { handle = '第三方，只列'; owner = '他人'; use = '第三方资料'; }
+    else if (flags.priv || PRIVATE_NAME.test(e.name) || PRIVATE_NAME.test(basename(dir))) { handle = '私密，只列'; use = '私密'; }
+    else if (flags.third || THIRD_PARTY.test(e.name) || THIRD_PARTY.test(basename(dir))) { handle = '第三方，只列'; owner = '他人'; use = '第三方资料'; }
     else if (RULE_FILE.test(e.name)) { use = '规则文件'; ruleFiles.push(p); }
     else if (ext === '.ics') { use = '日历'; calendars.push(p); }
     else if (COURSE_DIR.test(basename(dir)) || COURSE_DIR.test(basename(dirname(dir)))) use = '课件';
@@ -151,8 +169,22 @@ function walk(dir, root, depth, label = '') {
     rows.push({path: p, type: ext || '(无后缀)', size: st.size, mtime: st.mtime, use, owner, handle});
   }
 }
-for (const r of roots) walk(r.path, r.path, 1, r.label);
+for (const r of roots) walk(r.path, r.path, 1, r.label, {third: THIRD_PARTY.test(basename(r.path)), priv: PRIVATE_NAME.test(basename(r.path))});
 const elapsedMs = Date.now() - started;
+
+// ---- 课件目录：名字像还不够，里面（3 层内）得真有课件类文件；父目录已算的，Week 1… 子目录不再单列（09-16：13 处里 5 处是代码里叫 canvas 的目录和镜像） ----
+const courseCandidates = [...new Set(courseDirs)];
+const courseFileCount = new Map();
+for (const r of rows) {
+  if (!COURSE_EXT.has(extname(r.path).toLowerCase())) continue;
+  const low = r.path.toLowerCase();
+  for (const d of courseCandidates) { const dl = d.toLowerCase() + sep; if (low.startsWith(dl) && r.path.slice(dl.length).split(sep).length <= 3) courseFileCount.set(d, (courseFileCount.get(d) || 0) + 1); }
+}
+const courseKept = courseCandidates.filter(d => courseFileCount.get(d)).filter((d, _, all) => !all.some(o => o !== d && courseFileCount.get(o) && d.toLowerCase().startsWith(o.toLowerCase() + sep)));
+const courseDropped = courseCandidates.filter(d => !courseKept.includes(d));
+for (const r of rows) if (r.use === '课件' && !courseKept.some(d => r.path.toLowerCase().startsWith(d.toLowerCase() + sep))) r.use = repos.some(x => r.path.toLowerCase().startsWith(x.toLowerCase())) ? '代码' : '其他';
+// 日历：同一份课表的下载副本（xxx (1).ics）只算一份
+const calendarsDedup = [...new Map(calendars.map(p => [basename(p).replace(/ \(\d+\)(?=\.ics$)/i, '').toLowerCase(), p])).values()];
 
 // ---- 与上次比较（DISCOVERY 7） ----
 const ctxDir = join(workspace, 'connection', 'context');
@@ -160,17 +192,24 @@ mkdirSync(ctxDir, {recursive: true});
 let prevList = null;
 try {
   const prev = readdirSync(ctxDir).filter(f => /^SCAN-\d{4}-\d{2}-\d{2}-清单\.md$/.test(f) && !f.startsWith(`SCAN-${dateTag}`)).sort().pop();
-  if (prev) { prevList = new Map(); for (const line of readFileSync(join(ctxDir, prev), 'utf8').split('\n')) { const m = line.match(/^\| `(.+?)` \| [^|]* \| [^|]* \| ([^|]+) \|/); if (m) prevList.set(m[1], m[2].trim()); } prevList.name = prev; }
+  if (prev) { prevList = new Map(); const text = readFileSync(join(ctxDir, prev), 'utf8'); for (const line of text.split('\n')) { const m = line.match(/^\| `(.+?)` \| [^|]* \| [^|]* \| ([^|]+) \| [^|]* \| [^|]* \| ([^|]*) \|/); if (m) prevList.set(m[1], {mtime: m[2].trim(), handle: m[3].trim()}); } prevList.name = prev; prevList.rules = (text.match(/^规则版本 (\S+?)。?$/m) || [])[1] || '未标'; }
 } catch {}
 let changes = null;
+// 变化只看内容类文件：聊天软件、私密、禁区这些"只列"的路径天天在动，混进来就看不见用户真正动了什么（09-16：新增 157 里微信占 79）
+const LIST_ONLY = (h) => /^(私密|第三方|禁区|只列，不跟随)/.test(h || '');
+// 旧路径按现在的规则还在不在范围内：不在的不算"消失"，那是规则变了不是用户删了
+const inScopeNow = (p) => { const low = p.toLowerCase(), ws = workspace.toLowerCase(); if (low === ws || low.startsWith(ws + sep)) return false; const root = roots.find(r => low === r.path.toLowerCase() || low.startsWith(r.path.toLowerCase() + sep)); if (!root) return false; const parts = p.slice(root.path.length + 1).split(sep); if (parts.length > 7) return false; return !parts.slice(0, -1).some(c => EXCLUDE_DIR.test(c)); };
 if (prevList) {
-  const cur = new Map(rows.map(r => [r.path, isoLocal(r.mtime)]));
+  const curAll = new Set(rows.map(r => r.path));
+  const cur = new Map(rows.filter(r => !LIST_ONLY(r.handle)).map(r => [r.path, isoLocal(r.mtime)]));
   const added = [...cur.keys()].filter(k => !prevList.has(k));
-  const modified = [...cur.keys()].filter(k => prevList.has(k) && prevList.get(k) !== cur.get(k));
+  const modified = [...cur.keys()].filter(k => prevList.has(k) && prevList.get(k).mtime !== cur.get(k));
   // 上次清单里有、这次没有的路径：如果现在处在放了 .dsh-private 标记的目录下，连"消失"也不记，免得泄露路径。
   const underPrivate = (p) => { let d = dirname(p); for (let i = 0; i < 12 && d && d !== dirname(d); i++) { if (existsSync(join(d, '.dsh-private'))) return true; d = dirname(d); } return false; };
-  const gone = [...prevList.keys()].filter(k => !cur.has(k) && !underPrivate(k));
-  changes = {prev: prevList.name, added, modified, gone};
+  const goneRaw = [...prevList.entries()].filter(([k, v]) => !LIST_ONLY(v.handle) && !curAll.has(k) && !underPrivate(k)).map(([k]) => k);
+  const gone = goneRaw.filter(inScopeNow);
+  const listOnlyChanged = rows.filter(r => LIST_ONLY(r.handle) && (!prevList.has(r.path) || prevList.get(r.path).mtime !== isoLocal(r.mtime))).length + [...prevList.entries()].filter(([k, v]) => LIST_ONLY(v.handle) && !curAll.has(k)).length;
+  changes = {prev: prevList.name, prevRules: prevList.rules, added, modified, gone, outOfScope: goneRaw.length - gone.length, listOnlyChanged};
 }
 
 // ---- 写 SCAN 文件 ----
@@ -192,10 +231,11 @@ summary.push('## 候选来源（DSH 第一次见面从这里按需读原文）',
 for (const k of known) summary.push(`| ${k.category} | \`${cell(k.path)}\` | \`${k.basis}\` | ${cell(k.note)} |`);
 for (const p of ruleFiles.slice(0, 200)) summary.push(`| 内容区里的规则文件 | \`${cell(p)}\` | \`user_rule_file\` | AI 记忆日志段落按 assistant_summary |`);
 { const n = capNote(ruleFiles.length, 200, '内容区里的规则文件'); if (n) summary.push(n); }
-const uniqueCourseDirs = [...new Set(courseDirs)];
-for (const p of uniqueCourseDirs.slice(0, 100)) summary.push(`| 本地课件目录 | \`${cell(p)}\` | \`inferred_from_behavior\` | 课程名、周次、清单；谈话里确认后升级 |`);
+const uniqueCourseDirs = courseKept;
+for (const p of uniqueCourseDirs.slice(0, 100)) summary.push(`| 本地课件目录 | \`${cell(p)}\` | \`inferred_from_behavior\` | 课件类文件 ${courseFileCount.get(p)} 个，子目录一并算；课程名、周次、清单；谈话里确认后升级 |`);
 { const n = capNote(uniqueCourseDirs.length, 100, '本地课件目录'); if (n) summary.push(n); }
-for (const p of calendars.slice(0, 20)) summary.push(`| 日历 | \`${cell(p)}\` | \`inferred_from_behavior\` | 课表、截止；谈话里确认 |`);
+if (courseDropped.length) summary.push(`| （名字像课件但里面没有课件类文件、或在代码和 AI 工作区里，不算：${courseDropped.length} 处，例如 ${courseDropped.slice(0, 3).map(p => '`' + cell(p) + '`').join('、')}） | | | |`);
+for (const p of calendarsDedup.slice(0, 20)) summary.push(`| 日历 | \`${cell(p)}\` | \`inferred_from_behavior\` | 课表、截止；谈话里确认 |`);
 for (const p of [...new Set(exportPacks)].slice(0, 20)) summary.push(`| AI 对话导出包 | \`${cell(p)}\` | 私密 | 只列；用户允许后才抽用户自己发的消息 |`);
 summary.push('', '## 按目录', '', '| 目录 | 文件 | 大小 | 最近修改 | 主要类型 |', '|---|---|---|---|---|');
 for (const [d, s] of [...dirStats.entries()].sort((a, b) => b[1].latest - a[1].latest).slice(0, 80)) summary.push(`| \`${cell(d)}\` | ${s.files} | ${fmtBytes(s.bytes)} | ${isoLocal(new Date(s.latest))} | ${[...s.types.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([t, n]) => `${t} ${n}`).join('，')} |`);
@@ -203,10 +243,13 @@ summary.push('', '## 禁区（只登记存在，未读）', '', '| 路径 | 处�
 for (const f of forbidden.slice(0, 150)) summary.push(`| \`${cell(f.path)}\` | ${f.kind} |`);
 if (forbidden.length > 150) summary.push(`| （共 ${forbidden.length} 处，这里只列前 150 处） | |`);
 if (!forbidden.length) summary.push('| （无） | |');
-summary.push('', '## 未覆盖', '', uncovered.length ? uncovered.slice(0, 100).map(u => `- \`${cell(u)}\``).join('\n') + (uncovered.length > 100 ? `\n- （共 ${uncovered.length} 处，这里只列前 100 处）` : '') : '（无）', '');
-if (changes) summary.push('## 变化（对比 ' + changes.prev + '）', '', `新增 ${changes.added.length}，修改 ${changes.modified.length}，消失 ${changes.gone.length}。`, '', ...changes.added.slice(0, 30).map(p => `- 新增 \`${cell(p)}\``), ...changes.modified.slice(0, 30).map(p => `- 修改 \`${cell(p)}\``), ...changes.gone.slice(0, 30).map(p => `- 消失 \`${cell(p)}\``), '');
+// 未覆盖：同一个祖父目录下 3 处以上折成一行（09-16：1339 处几乎全是游戏存档备份超过 6 层）
+const collapseUncovered = (list) => { const by = new Map(); for (const u of list) { const base = u.replace(/（[^）]*）$/, ''); const key = dirname(dirname(base)); const a = by.get(key) || []; a.push(u); by.set(key, a); } const out = []; for (const [k, arr] of by) { if (arr.length >= 3) out.push(`\`${cell(k)}\` 下 ${arr.length} 处${(arr[0].match(/（[^）]*）$/) || [''])[0]}`); else out.push(...arr.map(u => `\`${cell(u)}\``)); } return out; };
+const uncoveredLines = collapseUncovered(uncovered);
+summary.push('', '## 未覆盖', '', uncovered.length ? `${uncovered.length} 处，折成 ${uncoveredLines.length} 行。\n\n` + uncoveredLines.slice(0, 100).map(l => `- ${l}`).join('\n') + (uncoveredLines.length > 100 ? `\n- （共 ${uncoveredLines.length} 行，这里只列前 100 行）` : '') : '（无）', '');
+if (changes) summary.push('## 变化（对比 ' + changes.prev + '）', '', `新增 ${changes.added.length}，修改 ${changes.modified.length}，消失 ${changes.gone.length}。只看内容类文件；聊天软件、私密、禁区这些只列的路径另有变化 ${changes.listOnlyChanged} 处，不列。` + (changes.prevRules !== SCAN_RULES_VERSION ? `上次清单的规则版本是 ${changes.prevRules}，这次是 ${SCAN_RULES_VERSION}：按现在的规则不在范围内的 ${changes.outOfScope} 条旧路径不算消失，那是规则变了，不是用户删了。` : (changes.outOfScope ? `另有 ${changes.outOfScope} 条旧路径按现在的规则不在范围内，不算消失。` : '')), '', ...changes.added.slice(0, 30).map(p => `- 新增 \`${cell(p)}\``), ...changes.modified.slice(0, 30).map(p => `- 修改 \`${cell(p)}\``), ...changes.gone.slice(0, 30).map(p => `- 消失 \`${cell(p)}\``), '');
 summary.push('## 候选事实', '', '（由 DSH 在第一次见面读候选来源后按 `protocols/DISCOVERY.md` 第 6 节填：候选事实、来源、basis、去向。脚本不做这一步。）', '');
-const listing = ['# 全扫清单 · ' + dateTag, '', `${rows.length} 条。列：路径、类型、大小、修改时间、用途猜测、归属猜测、处理。`, '', '| 路径 | 类型 | 大小 | 修改时间 | 用途 | 归属 | 处理 |', '|---|---|---|---|---|---|---|'];
+const listing = ['# 全扫清单 · ' + dateTag, '', `${rows.length} 条。列：路径、类型、大小、修改时间、用途猜测、归属猜测、处理。`, '', `规则版本 ${SCAN_RULES_VERSION}。`, '', '| 路径 | 类型 | 大小 | 修改时间 | 用途 | 归属 | 处理 |', '|---|---|---|---|---|---|---|'];
 for (const r of rows) listing.push(`| \`${cell(r.path)}\` | ${r.type} | ${fmtBytes(r.size)} | ${isoLocal(r.mtime)} | ${r.use} | ${r.owner} | ${r.handle} |`);
 const atomic = (p, text) => { const tmp = p + '.tmp-' + process.pid; writeFileSync(tmp, text, 'utf8'); renameSync(tmp, p); };
 const outSummary = join(ctxDir, `SCAN-${dateTag}.md`);
@@ -226,9 +269,9 @@ try {
 process.stdout.write(JSON.stringify({
   scan: outSummary, listing: outList, roots: roots.length, dirs, files, bytes, elapsed_ms: elapsedMs, stopped, uncovered: uncovered.length,
   blocked: blocked.length, blocked_at: blocked.map(b => `${b.path}（${b.what}：${b.error}）`), denied_dirs: deniedDirs,
-  forbidden: forbidden.length, private_dirs: privateDirs, known_entries: known.length, rule_files: ruleFiles.length, course_dirs: uniqueCourseDirs.length,
-  calendars: calendars.length, export_packs: [...new Set(exportPacks)].length, coverage, manifest_updated: manifestUpdated,
-  changes: changes ? {prev: changes.prev, added: changes.added.length, modified: changes.modified.length, gone: changes.gone.length} : null,
+  forbidden: forbidden.length, private_dirs: privateDirs, known_entries: known.length, rule_files: ruleFiles.length, course_dirs: uniqueCourseDirs.length, course_dirs_dropped: courseDropped.length,
+  calendars: calendarsDedup.length, rules_version: SCAN_RULES_VERSION, export_packs: [...new Set(exportPacks)].length, coverage, manifest_updated: manifestUpdated,
+  changes: changes ? {prev: changes.prev, prev_rules: changes.prevRules, added: changes.added.length, modified: changes.modified.length, gone: changes.gone.length, out_of_scope: changes.outOfScope, list_only_changed: changes.listOnlyChanged} : null,
 }, null, 2) + '\n');
 if (blocked.length) {
   process.stderr.write(`全扫被权限拦住：${blocked.map(b => `${b.what}（${b.error}）`).join('；')}。结果不完整，覆盖状态 blocked。让用户把 Codex 关掉重开一次（安装器已给全盘权限，重开生效）再重扫；不要报"扫完了"。\n`);
