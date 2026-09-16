@@ -1,6 +1,6 @@
 // 全扫脚本（protocols/DISCOVERY.md 的程序实现）。由主 agent（入口 Codex）在派工前运行，不用模型；DSH 不扫电脑，只读输出。
 // 安装器装完会先跑一次（安装器跑在用户自己的权限下，不在 Codex 沙箱里）；之后由入口在 SCAN 缺失或过期时再跑。
-// 用法：node app/scan.mjs [--config connection.local.json] [--max-files 20000] [--max-bytes 2147483648] [--max-seconds 600]
+// 用法：node app/scan.mjs [--config connection.local.json] [--max-files 100000] [--max-bytes 2147483648] [--max-seconds 600]
 // 输出：<workspace>/connection/context/SCAN-<日期>.md（汇总）与 SCAN-<日期>-清单.md（完整清单）；回写 MANIFEST.md 的 coverage。
 // 退出码：0 正常；2 = 根被权限挡住（列不了家目录根、读不了笔记库登记表、根目录进不去或列不出来；macOS 没批桌面/文稿/下载的隐私权限也算）。这时结果不完整：
 //   汇总里有「看不见的地方」一节，覆盖状态 blocked，stderr 有一句人话。入口见到就报"被拦住"，不得报"扫完了"（DISCOVERY 第 0 节）。
@@ -13,7 +13,7 @@ const opt = (name, def) => { const i = args.indexOf(name); return i >= 0 ? args[
 const configPath = resolve(opt('--config', join(homedir(), '.codex', 'skills', 'dsh-dialogue', 'connection.local.json')));
 const config = JSON.parse(readFileSync(configPath, 'utf8'));
 const workspace = resolve(config.workspace);
-const MAX_FILES = Number(opt('--max-files', 20000));
+const MAX_FILES = Number(opt('--max-files', 100000)); // 09-16 Mac 实测 22 个仓库的桌面 20,000 不够（0.7 秒就撞顶）；100,000 约 4 秒
 const MAX_BYTES = Number(opt('--max-bytes', 2 * 1024 * 1024 * 1024));
 const MAX_MS = Number(opt('--max-seconds', 600)) * 1000;
 const HOME = homedir();
@@ -25,7 +25,9 @@ const isoLocal = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.get
 const errCode = (e) => (e && e.code) ? String(e.code) : String(e && e.message ? e.message : e).slice(0, 60);
 
 // ---- 范围（DISCOVERY 2.2）与排除（2.4） ----
-const EXCLUDE_DIR = /^(node_modules|\.git|\.venv|venv|__pycache__|dist|build|\.cache|cache|caches|\.next|\.nuxt|target|\$recycle\.bin|\.pnpm-store|\.gradle|\.idea|\.vs|\.mypy_cache|\.pytest_cache|coverage|obj|bin)$/i;
+const EXCLUDE_DIR = /^(node_modules|\.git|[\w.-]*venv[\w.-]*|\.?env\d*|site-packages|\.tox|\.nox|__pycache__|dist|build|\.cache|cache|caches|\.next|\.nuxt|target|\$recycle\.bin|\.pnpm-store|\.gradle|\.idea|\.vs|\.mypy_cache|\.pytest_cache|coverage|obj|bin|Pods|DerivedData|\.terraform)$/i;
+// 名字不像也可能是虚拟环境（Mac 实测 09-16：Desktop/intern/.aivenv 吃光了 20,000 文件预算）：目录里有 pyvenv.cfg 就是 venv，不进。
+const isVirtualEnv = (p) => { try { return existsSync(join(p, 'pyvenv.cfg')); } catch { return false; } };
 const READ_EXT = new Set(['.md', '.txt', '.pdf', '.docx', '.pptx', '.xlsx', '.csv', '.json', '.ics', '.html', '.htm']);
 const LIST_ONLY_EXT = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.mp3', '.mp4', '.wav', '.m4a', '.mov', '.mkv', '.zip', '.7z', '.rar', '.tar', '.gz', '.exe', '.msi', '.dll', '.dmg', '.iso', '.bin']);
 const BIG_FILE = 50 * 1024 * 1024;
@@ -69,7 +71,7 @@ const repos = [];
   let ents; try { ents = readdirSync(dir, {withFileTypes: true}); }
   catch (e) { if (dir === HOME) blocked.push({path: dir, what: '列家目录根（找代码仓）', error: errCode(e)}); else if (e.code === 'EPERM' || e.code === 'EACCES') deniedDirs++; return; }
   for (const e of ents) {
-    if (!e.isDirectory() || EXCLUDE_DIR.test(e.name) || e.name.startsWith('.') && e.name !== '.git' || /^(AppData|Application Data|Library)$/i.test(e.name)) continue;
+    if (!e.isDirectory() || EXCLUDE_DIR.test(e.name) || e.name.startsWith('.') && e.name !== '.git' || /^(AppData|Application Data|Library)$/i.test(e.name) || isVirtualEnv(join(dir, e.name))) continue; // p 还没定义，别用它
     const p = join(dir, e.name);
     if (existsSync(join(p, '.git'))) { repos.push(p); continue; }
     findRepos(p, depth + 1);
@@ -117,7 +119,7 @@ function walk(dir, root, depth, label = '') {
     let st; try { st = lstatSync(p); } catch { continue; }
     if (st.isSymbolicLink()) { rows.push({path: p, type: 'link', size: 0, mtime: st.mtime, use: '链接', owner: '不确定', handle: '只列，不跟随'}); continue; }
     if (e.isDirectory()) {
-      if (EXCLUDE_DIR.test(e.name)) continue;
+      if (EXCLUDE_DIR.test(e.name) || isVirtualEnv(p)) continue;
       if (FORBIDDEN_DIR.test(e.name)) { forbidden.push({path: p, kind: '凭证或浏览器数据目录，未进'}); continue; }
       if (rootSet.has(p.toLowerCase())) continue; // 另一个根（仓库、笔记库），单独走，不在这里重复列
       if (COURSE_DIR.test(e.name)) courseDirs.push(p);

@@ -43,11 +43,11 @@
 
 ### 2.4 排除
 
-系统目录（`Windows`、`Program Files`、`ProgramData`、`AppData\Local\Temp`、`/System`、`/Library/Caches`）、`node_modules`、`.git/objects`、`.venv`、`__pycache__`、`dist`、`build`、各类缓存目录、回收站。
+系统目录（`Windows`、`Program Files`、`ProgramData`、`AppData\Local\Temp`、`/System`、`/Library/Caches`）、`node_modules`、`.git/objects`、Python 虚拟环境（目录里有 `pyvenv.cfg`，或名字含 `venv`、`env`、`site-packages`、`.tox`）、`__pycache__`、`dist`、`build`、`Pods`、`DerivedData`、各类缓存目录、回收站。
 
 ## 3. 预算（数字是提案）
 
-首次全扫：最多 20,000 个文件、2 GB、10 分钟，先到为准；超出的部分记为未覆盖，下次重扫从那里继续。重扫：5 分钟。脚本在派工前几秒跑完；预算用完就停，未覆盖的目录写进文件，第一次见面在这份结果上开始，摆坐标时说明哪些没扫到。
+首次全扫：最多 100,000 个文件、2 GB、10 分钟，先到为准；超出的部分记为未覆盖，下次重扫从那里继续。重扫：5 分钟。（09-16 Mac 实测：桌面上 22 个代码仓加一个没被排除的 Python 虚拟环境，20,000 文件 0.7 秒就撞顶、扫到一半停下，所以数字提到 100,000，约 4 秒；同时虚拟环境不进，见 2.4。）脚本在派工前几秒跑完；预算用完就停，未覆盖的目录写进文件，第一次见面在这份结果上开始，摆坐标时说明哪些没扫到。
 
 ## 4. 输出
 
