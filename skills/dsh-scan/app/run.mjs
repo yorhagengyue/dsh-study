@@ -110,7 +110,7 @@ function writeSkeleton(d, force) {
   const L = [
     `# 全扫反思 · ${d.date}`, '',
     `扫描：\`connection/context/SCAN-${d.date}.md\`（${d.files} 文件，${d.roots} 根，覆盖 \`${d.coverage}\`${d.blocked ? '，⚠ 被权限拦住' : ''}，本机 ${hostname()}）。写的人：（待填：Codex 或 Claude Code，写实际的那个）。写于：（待填：日期 时间）。`, '',
-    '先读本 skill 的 SKILL.md 第 2 节「怎么想」，再填。每节开头的「> 标准」和「> 坏例子」是尺子，留着，填在它们下面。写完把所有「待填」标记连括号一起删掉，把最后的自检逐条勾掉，再跑 `node <本 skill 目录>/app/run.mjs check`，它报 ok 才算扫完。收件人是维护者、下一轮的入口和以后的 DSH，不是用户；对用户说的话在第 5 节。', '',
+    '先读本 skill 的 SKILL.md 第 2 节「怎么想」，再填。每节开头的「> 标准」和「> 坏例子」是尺子，留着，填在它们下面（第 5 节可以用引用块贴原话，check 只剔这两行）。写完把所有「待填」标记连括号一起删掉，把最后的自检逐条勾掉，再跑 `node <本 skill 目录>/app/run.mjs check`，它报 ok 才算扫完。收件人是维护者、下一轮的入口和以后的 DSH，不是用户；对用户说的话在第 5 节。', '',
     `## ${SECTIONS[0]}`, '',
     '> 标准：三到五句。第一句是主线；后面是两三个模式，每个先写道理再写下一层需要什么；最后一句写他现在在哪一层。每句删掉项目名仍成立。',
     '> 坏例子：「22 个根、12,566 个文件，课程两门，最近在动的是 X」，这是数清单。「他很勤奋、很有条理」，这是空评价。「他应该少开几条线」，这是建议先于理解。', '',
@@ -151,7 +151,7 @@ function checkReflection(scanFile) {
   SECTIONS.forEach((h, i) => {
     const body = section(t, h);
     if (body === null) { missing.push(`「${h}」这一节没了`); return; }
-    const own = body.split(/\r?\n/).filter(l => !l.trim().startsWith('>')).join('\n').replace(/（待填[^）\n]*）/g, '').trim();
+    const own = body.split(/\r?\n/).filter(l => !/^\s*>\s*(标准|坏例子)[:：]/.test(l)).join('\n').replace(/（待填[^）\n]*）/g, '').trim(); // 只剔「> 标准」「> 坏例子」两行；第 5 节用引用块贴原话是允许的（冷测 09-17 Opus 撞到过）
     if (own.length < MIN[i]) missing.push(`「${h}」没填够（${own.length} 字，至少 ${MIN[i]}）`);
   });
   const m = t.match(/（待填[^）\n]*）/g);
