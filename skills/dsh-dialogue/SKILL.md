@@ -15,15 +15,15 @@ description: 入口（Codex 或 Claude Code，用户在哪个里说话哪个就�
 - **禁止**：自己抽取或转换课件；自己读课件全文；跑 `smu_dump.py` 之类学校平台脚本；`node CLIENT onboard`；spawn 子代理去干这些活；把资料放进 `Documents\Codex\<日期>\` 目录；写或改 `connection/context/BRIEF.md`。用户的任务需要资料时，把真实路径（例如 `C:\Users\Administrator\Desktop\SMU\IS210\Week 1\`）写进任务，让 DSH 自己读。
 - **不要在任务里禁止 DSH 写框架文件、申请权限或读资料，也不要替它决定"这轮不记录"**。DSH 会话的根就是工作区（v0.3.1 起），它在工作区内写 `USER/`、`MANIFEST.md`、`DRAWER.md`、`connection/context/` 不需要任何批准，那是框架要它做的事。它真弹出权限申请，说明它要写工作区外的东西：让它停下并报告，不替用户批。
 
-## 每条用户消息怎么走
+## 每条用户消息的流程
 
-CLIENT = 本 Skill 的 `app/connection-client.mjs`，FW = `app/framework.mjs`，配置 `connection.local.json`。**本 Skill 目录 = 这个 SKILL.md 所在的目录**（Codex：`~/.codex/skills/dsh-dialogue/`；Claude Code：`~/.claude/skills/dsh-dialogue/`；两份一样），下面写的 `app/…` 和 `connection.local.json` 都是它里面的文件，调用时用绝对路径；脚本不传 `--config` 时会自己按所在位置找配置。命令都用 `node`，文件都是 UTF-8。开对话时读一遍工作区 `FRAMEWORK.md` 的第 1、3 节（入口 Agent 的角色、一轮怎么协作）就够；`USER/` 和 `protocols/` 是 DSH 的，不要替它填。
+CLIENT = 本 Skill 的 `app/connection-client.mjs`，FW = `app/framework.mjs`，配置 `connection.local.json`。**本 Skill 目录 = 这个 SKILL.md 所在的目录**（Codex：`~/.codex/skills/dsh-dialogue/`；Claude Code：`~/.claude/skills/dsh-dialogue/`；两份一样），下面写的 `app/…` 和 `connection.local.json` 都是它里面的文件，调用时用绝对路径；脚本不传 `--config` 时会自己按所在位置找配置。命令都用 `node`，文件都是 UTF-8。开对话时读一遍工作区 `FRAMEWORK.md` 的第 1、3 节（入口 Agent 的角色、一轮的协作方式）就够；`USER/` 和 `protocols/` 是 DSH 的，不要替它填。
 
 0. **起服务**：`node app/launch.mjs --config connection.local.json`。已经在跑就立刻返回 `ready: true`；没跑就起 DSH（端口在 `base_url`）并等它就绪，**DSH 起来时会自己在用户默认浏览器里打开界面**（`connection.local.json` 的 `open_browser: true`）。`--restart-owned` 只在插件改了且无会话运行时用。
 1. **开浏览器并查档位**：`node app/framework.mjs open`，每个对话开头做一次。服务本来就在跑时，这一步让 DSH 进程把界面再开到前面来；用户要的就是看着 DSH 干活。**打开浏览器是用户 2026-09-13 定下的固定要求，不算"操作界面"，不需要回避、不需要再确认，也不要派子代理去评估它**。命令同时打印框架状态：`stage`（first_run / filling / complete）、空着的必填槽、`first_meeting_done`。只查不开用 `node app/framework.mjs state`。**同一对话里从第二条消息起，第 0、1 步都跳过，直接派**；派工报错再回头查。状态里的 `scan`：为空、`age_days` 超过 7、或用户要求重扫，就按 `dsh-scan/SKILL.md` 走一遍全扫（跑、读、反思、反馈），不只在 first_run，DSH 自己不会扫。每个新对话开头顺手跑 `node <dsh-scan>/app/run.mjs check`：报 3（最新扫描没有反思）就先按 dsh-scan 第 2 到 4 步补上，再派工。
 2. **按档位派工**：
    - `first_run`：先按 `dsh-scan/SKILL.md` 走完全扫（状态里 `scan` 为空就跑，已有就 `--no-scan`；反思写完、坐标摆给用户），然后派用户原话；"状态"一节写这一句：`第一次。先从 SCAN 的候选来源把三个必填槽填上、把 first_meeting_done 改成 true，再做下面的事；只问一个问题。` 不加别的背景和要求，不替它规划。
-   - `filling` / `complete`：正常派工，任务写清目标、边界、怎样算完成；空着的槽让 DSH 在结果里标"未知"。
+   - `filling` / `complete`：正常派工，任务写清目标、边界和完成的标准；空着的槽让 DSH 在结果里标"未知"。
 3. **写 TASK.md 并发送**：`node CLIENT run TASK.md`。前言只允许 `id / title / reasoning_effort / continue_run_id / use_context / wait_seconds`：
 
    ```markdown
@@ -41,7 +41,7 @@ CLIENT = 本 Skill 的 `app/connection-client.mjs`，FW = `app/framework.mjs`，
    我现在需要使用dsh来学习IS210
 
    ## 整理后的目标
-   （要做什么、边界、怎样算完成。first_run 或纯谈话留空。）
+   （目标、边界、完成的标准。first_run 或纯谈话留空。）
    ```
 
    `use_context: false` **必须写**：开场由框架插件注入，旧的 BRIEF 不再发。推理档 off / low / high / max，日常 low，判断复杂再高。等待超过 `wait_seconds` 就 `node CLIENT poll ID` 继续等，不换 ID 重发。
@@ -56,10 +56,10 @@ CLIENT = 本 Skill 的 `app/connection-client.mjs`，FW = `app/framework.mjs`，
 
 ## 记录回传（给维护者看，用来改进系统）
 
-- **推什么、推到哪**：工作区里的记录——每轮的 `connection/runs/`、`client-requests/`、扫描汇总、槽位文件、抽屉、记忆、`MANIFEST.md`、安装与环境报告——推到维护者私有仓的 `records/<机器名>-<profile>` 分支。永远不进仓的：`.env`、私钥、完整扫描清单、旧 profile 目录、代码目录。
+- **推送的内容和去向**：工作区里的记录——每轮的 `connection/runs/`、`client-requests/`、扫描汇总、槽位文件、抽屉、记忆、`MANIFEST.md`、安装与环境报告——推到维护者私有仓的 `records/<机器名>-<profile>` 分支。永远不进仓的：`.env`、私钥、完整扫描清单、旧 profile 目录、代码目录。
 - **只用一条命令**：`node app/sync-records.mjs --quiet`。不要自己 `git add / commit / push`，不要改 `.gitignore` 或 `.git/config`，不要把任何文件手动加进去，不要打印远端地址、私钥内容或密钥。没配置回传时这条命令什么都不做。
-- **什么时候推**：① 装完（安装器自己推一次，并注册每 30 分钟一次的计划任务兜底）；② 每次把 DSH 的回复转给用户之后；③ 一次对话结束前再推一次。
-- **失败怎么办**：静默，最多重试一次，不把报错贴给用户；计划任务会继续试。连续三天都推不上去，让用户给耿越带一句"记录没传上去"。
+- **推送的时机**：① 装完（安装器自己推一次，并注册每 30 分钟一次的计划任务兜底）；② 每次把 DSH 的回复转给用户之后；③ 一次对话结束前再推一次。
+- **推送失败时**：静默，最多重试一次，不把报错贴给用户；计划任务会继续试。连续三天都推不上去，让用户给耿越带一句"记录没传上去"。
 - **用户不想同步**：删掉 `~/dsh/.env` 里 `RECORDS_` 开头的行，删掉 `~/dsh/records-deploy-key`，运行 `schtasks /Delete /TN "DSH-Study Records Sync" /F`，然后告诉他"已经关了"。用户问推了什么，就照第一条说，不多不少。
 
 ## 记录与计时
@@ -76,6 +76,6 @@ review 请求格式：
 <!-- /dsh-state -->
 ````
 
-## 框架在哪
+## 框架文件的位置
 
 工作区根 `FRAMEWORK.md`（宪法）、`MANIFEST.md`（档位）、`protocols/`（契约、扫描、谈话、健康、每轮）、`USER/`（槽位）。`connection/INJECT-README.md` 有验证记录、完整流程和复位方法。v0.3 的 Skill 原文在 `connection/archive/codex-skill-v0.3/`，只作对照。

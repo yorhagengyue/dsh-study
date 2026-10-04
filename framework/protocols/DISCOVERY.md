@@ -4,7 +4,7 @@
 
 **全扫分两半**（耿越 2026-10-04 口述，Claude 落笔）。前半是程序化扫描：列清单、指路，告诉 AI 去哪里读。后半是完整读：agent 起数个子代理或一个 workflow 把内容完整读一遍，这才是最重要的部分。只做了前半不算全扫做完。本文件管前半。
 
-## 0. 谁来扫（耿越 2026-09-13 晚定，2026-09-16 重申）
+## 0. 扫描的执行者（耿越 2026-09-13 晚定，2026-09-16 重申）
 
 扫描由**主 agent 的脚本**执行。主 agent = 入口，Codex 或 Claude Code，用户在哪个里说话哪个就是（耿越 2026-09-16："全部由 Codex，这才是主 agent，DSH 的模型能力不够那么强大"）。脚本在入口 skill 目录下的 `app/scan.mjs`（`~/.codex/skills/dsh-dialogue/` 与 `~/.claude/skills/dsh-dialogue/` 各一份，内容相同），纯程序，不用模型，几秒钟跑完；在 `first_run` 派工之前运行，输出到 `connection/context/`。**DSH 不扫电脑**：它只读最新的 `SCAN-<日期>.md`，从"候选来源"里按需读原文、填槽、写候选事实。主 agent 运行脚本、也可以读清单做判断；DSH 只读结果。
 
@@ -24,7 +24,7 @@
 
 ### 2.1 已知入口
 
-| 类别 | Windows | macOS | 抽什么 | basis |
+| 类别 | Windows | macOS | 抽取内容 | basis |
 |---|---|---|---|---|
 | 用户维护的规则文件 | 用户目录、桌面、各代码仓根的 `CLAUDE.md`、`AGENTS.md`、`.cursorrules`、`.cursor/rules/*`；`%USERPROFILE%\.codex\AGENTS.md` | 同左；`~/.codex/AGENTS.md` | 身份、偏好、硬规则、项目索引 | `user_rule_file`；其中 AI 记忆日志段落按 `assistant_summary`（CONTRACT 第 3 节） |
 | AI 工具的记忆 | `%USERPROFILE%\.claude\projects\*\memory\*.md`；`%USERPROFILE%\.codex\memories\*.md` | `~/.claude/projects/*/memory/*.md`；`~/.codex/memories/*.md` | 关于用户的总结、偏好 | `assistant_summary` |
@@ -74,7 +74,7 @@
 
 ## 6. 抽取规则
 
-| 来源 | 抽成什么 | 进哪 |
+| 来源 | 抽取结果 | 去向 |
 |---|---|---|
 | 用户维护的规则文件 | 身份、语言、偏好、硬规则、项目名 | `identity`、`style`；明确写了学校课程的进 `learning` |
 | AI 工具的记忆 | 关于用户的总结 | 抽屉，候选事实，`assistant_summary` |
@@ -89,7 +89,7 @@
 
 重扫 = 入口再跑一次 `scan.mjs`（它自动对比上一份清单）。触发：用户要求、受权来源出现新文件、学期切换、每周一次。只报差异：新增、修改、消失、新禁区。**差异只看内容类文件**：聊天软件、私密、禁区这些只列的路径另给一个数，不列。**清单头部记规则版本**：规则变了，按现在的规则不在范围内的旧路径不算消失，汇总里写明是规则变了（2026-09-16：消失 660 里 631 条是不再列工作区造成的，差点被当成用户删了东西）。差异写进当次 `SCAN-<日期>.md` 的"变化"一节，不重填已确认的槽位。
 
-## 8. 告诉用户什么
+## 8. 扫完之后对用户说的话
 
 扫完不发报告、不给用户列清单，按 `protocols/CONVERSATION.md` 第 3 节"摆坐标"说：读到了什么（三到五句）、哪几处还空着、哪些没读（禁区、未覆盖），然后只问一个问题。完整清单在 `SCAN-<日期>.md`，用户想看再看。
 
