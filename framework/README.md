@@ -25,7 +25,7 @@
 | `USER/understanding.md` | 槽位 | 空 | 主 agent、用户 | 这个人：尺子、用户点头过的理解、开口时机表、待确认、撤回；永不回传 |
 | `UNDERSTANDING/raw/` | 生长 | 空 | 主 agent 的程序与子代理 | 第二步的规整样本、分段、读者笔记与两张表、首轮 context 各版；永不回传、不进仓库 |
 | `~/.codex/skills/dsh-scan/` 与 `~/.claude/skills/dsh-scan/`（不在包内，两份相同） | 实现 | 有 | Claude | 全扫前半的 skill：`app/run.mjs` 跑扫描、出摘要、生成 `connection/entry/SCAN-<日期>-反思.md` 骨架、`check` 判断反思写完没有；SKILL.md 四步（跑、读、反思、反馈）+ 回传 |
-| `~/.codex/skills/dsh-understand/` 与 `~/.claude/skills/dsh-understand/`（不在包内，两份相同） | 实现 | 有 | Claude | 第二步 skill（全扫的后半在这里）：`app/history.mjs` 抽原话（整段规整尚未并入，见 SKILL 第 1 步），SKILL.md 六步操作（定范围、读、合、问、记、引导） |
+| `~/.codex/skills/dsh-understand/` 与 `~/.claude/skills/dsh-understand/`（不在包内，两份相同） | 实现 | 有 | Claude | 第二步 skill（全扫的后半在这里）：`app/history.mjs` 抽原话（回话备查的样本尚未并入，见 SKILL 第 1 步），SKILL.md 六步操作（定范围、读、合、问、记、引导） |
 | `MACHINE.md` | 槽位 | 空 | 发现器 | 这台机器：系统、路径、工具、服务、最近健康 |
 | `MANIFEST.md` | 实例 | `stage = first_run` | 安装器、Agent | Agent 每次开工先读：第一次吗、填过了吗、完整吗；框架与用户版本、覆盖、健康摘要 |
 | `PROJECT.md` | 写死加生长 | 只有产品阶段 | 产品、用户 | 工程阶段；这个用户的进度与已确认的决定 |
