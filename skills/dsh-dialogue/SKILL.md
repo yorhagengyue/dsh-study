@@ -9,7 +9,7 @@ description: 入口（Codex 或 Claude Code，用户在哪个里说话哪个就�
 
 - **你（入口：Codex 或 Claude Code）只做五件事**：听懂用户的话（文字或语音转写）；保留整体上下文，把口语整理成清楚的目标；派给 DSH；把 DSH 的回复原样转给用户；对有交付物的结果实读验收。
 - **DSH 是完整的 Agent**，有 bash / pwsh / 文件读写 / 搜索 / 子代理 / 网页工具，工作区是 `connection.local.json` 的 `workspace`。所有干活都由它做：读课件、把 PPTX / PDF 抽成文字、总结、建索引、登记来源、扫描这台电脑、刷新学校平台、写 `USER/`、`PROJECT.md`、`DRAWER.md`、`connection/AUDIT.md`、跑脚本。它每个新会话自动收到框架开场（`$DSH_HOME/AGENTS.md`，由 `dsh-study-framework` 插件渲染），知道自己该怎么做，不用你教。
-- **全扫是入口的活，按旁边的 `dsh-scan/SKILL.md` 走完四步：跑、读、反思、反馈**。脚本是纯程序（几秒，只列文件名），产出 `connection/context/SCAN-<日期>.md`；但扫完你必须读摘要、写 `connection/entry/SCAN-<日期>-反思.md`、给用户摆坐标，`node <dsh-scan>/app/run.mjs check` 报 ok 才算扫完。耿越 2026-09-16 定：全扫的意义是理解用户，扫完没有反思等于没扫。清单本身你不读，DSH 读。**DSH 不扫电脑**，也不要让它扫。
+- **全扫是入口的活，按旁边的 `dsh-scan/SKILL.md` 走完四步：跑、读、反思、反馈**。这四步是全扫的前半（程序化扫描）；全扫分两半，后半是完整读（旁边的 `dsh-understand/SKILL.md`：起子代理或 workflow 整段读，是最重要的部分；耿越 2026-10-04 定）。脚本是纯程序（几秒，只列文件名），产出 `connection/context/SCAN-<日期>.md`；但扫完你必须读摘要、写 `connection/entry/SCAN-<日期>-反思.md`、给用户摆坐标，`node <dsh-scan>/app/run.mjs check` 报 ok 才算扫完。耿越 2026-09-16 定：全扫的意义是理解用户，扫完没有反思等于没扫。清单本身你不读，DSH 读。**DSH 不扫电脑**，也不要让它扫。
 - **安装器装完已经扫过一次，但没有人读过它**：`connection/context/` 里已有近 7 天的 `SCAN-<日期>.md` 就不必再跑扫描，改跑 `node <dsh-scan>/app/run.mjs --no-scan` 出摘要和反思骨架，然后按 `dsh-scan/SKILL.md` 第 2 到 5 步读、写反思、反馈、回传。退出码 2 或摘要开头有「⚠ 被权限拦住」，说明跑脚本的这个工具没有全盘权限（安装器已设好，重开后才生效）：**不要说扫完了**，对用户只说一句："扫描被权限拦住了，请把我关掉再打开一次，然后随便说一句话。" Codex 自己弹出"在沙箱外运行"的申请就让用户点允许后重跑。
 - **你亲自做的只有两类**：非常困难的判断；和人交流的语言问题（听清、追问一句、措辞）。技术性的总结、整理、抽取都不是。
 - **禁止**：自己抽取或转换课件；自己读课件全文；跑 `smu_dump.py` 之类学校平台脚本；`node CLIENT onboard`；spawn 子代理去干这些活；把资料放进 `Documents\Codex\<日期>\` 目录；写或改 `connection/context/BRIEF.md`。用户的任务需要资料时，把真实路径（例如 `C:\Users\Administrator\Desktop\SMU\IS210\Week 1\`）写进任务，让 DSH 自己读。
